@@ -509,18 +509,21 @@
     }
 
     .audience-grid,
-    .comparison-grid {
+    .comparison-grid,
+    .video-grid {
       display: grid;
       gap: 18px;
     }
 
-    .audience-grid {
+    .audience-grid,
+    .video-grid {
       grid-template-columns: repeat(3, 1fr);
       margin-top: 34px;
     }
 
     .audience-card,
-    .comparison-card {
+    .comparison-card,
+    .video-card {
       padding: 24px;
     }
 
@@ -536,6 +539,36 @@
       margin-bottom: 22px;
       border-radius: 999px;
       background: var(--teal);
+    }
+
+    .video-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--panel);
+      box-shadow: 0 16px 46px rgba(16, 32, 51, 0.06);
+    }
+
+    .video-placeholder {
+      display: grid;
+      min-height: 210px;
+      margin-bottom: 20px;
+      place-items: center;
+      border: 1px dashed #b9c6d5;
+      border-radius: 16px;
+      color: var(--muted);
+      background:
+        linear-gradient(90deg, rgba(11, 36, 59, 0.045) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(11, 36, 59, 0.045) 1px, transparent 1px),
+        #f8fbfd;
+      background-size: 28px 28px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .video-card p {
+      margin: 12px 0 0;
+      color: var(--muted);
     }
 
     .audience-card p,
@@ -785,6 +818,7 @@
 
       .audience-grid,
       .comparison-grid,
+      .video-grid,
       .pipeline {
         grid-template-columns: 1fr;
       }
@@ -792,6 +826,7 @@
       .workflow-card,
       .audience-card,
       .comparison-card,
+      .video-card,
       .editor-card,
       .text-panel {
         padding: 22px;
@@ -881,6 +916,7 @@
               <div class="action-card">news AI-grabbing</div>
               <div class="action-card">Rewrite</div>
               <div class="action-card">Fact-check</div>
+              <div class="action-card">Pics generate</div>
               <div class="action-card">SEO/GEO</div>
               <div class="action-card">Publish</div>
             </aside>
@@ -934,6 +970,32 @@
             <li>publish or schedule with editorial approval</li>
           </ol>
         </article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="demo-videos-title">
+      <div class="container">
+        <div class="section-header">
+          <h2 id="demo-videos-title">Lorem ipsum dolor sit amet</h2>
+          <p class="section-intro">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+        </div>
+        <div class="video-grid">
+          <article class="video-card">
+            <div class="video-placeholder" aria-label="Video placeholder">Place Holder</div>
+            <h3>Lorem ipsum dolor sit amet</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+          </article>
+          <article class="video-card">
+            <div class="video-placeholder" aria-label="Video placeholder">Place Holder</div>
+            <h3>Lorem ipsum dolor sit amet</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+          </article>
+          <article class="video-card">
+            <div class="video-placeholder" aria-label="Video placeholder">Place Holder</div>
+            <h3>Lorem ipsum dolor sit amet</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+          </article>
+        </div>
       </div>
     </section>
 
