@@ -49,7 +49,7 @@ def run_pipeline_from_facts(pages: list[PageFact], visits: list[VisitFact] | Non
     effective_limitations = [UNAVAILABLE_API_NOTE, "Без данных о достижении целей/CRM качество лидов не подтверждается; рекомендации остаются гипотезами для теста."] + list(limitations or [])
     decisions = _build_decisions(pages, recs, signal_evals, cfg.version, signal_cfg.get("version", ""), rules_cfg.get("version", ""), effective_limitations)
     logger.info("Writing reports")
-    write_reports(pages, all_signals, visit_results, recs, decisions, output_dir or Path(cfg.outputs.get("report_dir", "reports")), effective_limitations)
+    write_reports(pages, all_signals, visit_results, recs, decisions, output_dir or Path(cfg.outputs.get("report_dir", "reports")), effective_limitations, cfg.outputs)
     logger.info("Pipeline completed")
     return pages, all_signals, recs, decisions
 
