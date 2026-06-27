@@ -18,6 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--brand")
     collect.add_argument("--category")
     collect.add_argument("--output", type=Path, default=Path("reports"))
+    collect.add_argument("--config", type=Path, default=None)
     compare = sub.add_parser("compare", help="Compare saved runs from history")
     compare.add_argument("--run-id", action="append", dest="run_ids")
     _add_period_args(compare)
@@ -39,7 +40,7 @@ def _add_period_args(parser: argparse.ArgumentParser) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "collect":
-        collect_and_analyze(last_days=args.last_days, today=args.today, yesterday=args.yesterday, month=args.month, date_from=args.date_from, date_to=args.date_to, region=args.region, brand=args.brand, category=args.category, output=args.output)
+        collect_and_analyze(last_days=args.last_days, today=args.today, yesterday=args.yesterday, month=args.month, date_from=args.date_from, date_to=args.date_to, region=args.region, brand=args.brand, category=args.category, output=args.output, config_path=args.config)
         return 0
     if args.command == "compare":
         storage = HistoryStorage(args.history_dir)

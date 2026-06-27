@@ -87,6 +87,29 @@ def test_cli_compare_writes_report(tmp_path: Path) -> None:
     assert (tmp_path / "reports" / "changes_report.md").exists()
 
 
+
+def test_cli_collect_passes_config_path(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_collect_and_analyze(**kwargs: object) -> dict[str, bool]:
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr("metrika_lead_pipeline.cli.collect_and_analyze", fake_collect_and_analyze)
+
+    assert main([
+        "collect",
+        "--from", "2026-06-01",
+        "--to", "2026-06-27",
+        "--output", "reports_integration",
+        "--config", ".integration_config.yaml",
+    ]) == 0
+
+    assert captured["date_from"] == "2026-06-01"
+    assert captured["date_to"] == "2026-06-27"
+    assert captured["output"] == Path("reports_integration")
+    assert captured["config_path"] == Path(".integration_config.yaml")
+
 def test_recommendations_use_pageviews_without_mislabeling_visits() -> None:
     page = PageFact(url="/u", title="Цена Model A", pageviews=150, visitors=100)
     rec = build_recommendations([page], {"/u": ["цены"]}, {"recommendation_rules": {"min_visits": 100, "commercial_signals": ["цены"]}})[0]
