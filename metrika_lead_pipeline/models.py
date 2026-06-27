@@ -20,6 +20,7 @@ class PageFact(DumpMixin):
     url: str
     title: str = ""
     visits: int = 0
+    pageviews: int = 0
     visitors: int = 0
     bounce_rate: float | None = None
     page_depth: float | None = None
