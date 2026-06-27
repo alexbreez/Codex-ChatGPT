@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 full = ["requests", "pandas", "openpyxl", "python-dotenv", "pydantic", "typer", "loguru", "PyYAML"]
+# Test runner extra for clean CI/dev environments: python -m pip install -e ".[full,test]"
 test = ["pytest"]
 
 [project.scripts]
