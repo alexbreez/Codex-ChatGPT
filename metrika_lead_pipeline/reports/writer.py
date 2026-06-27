@@ -49,7 +49,16 @@ def write_reports(pages: list[PageFact], signals: list[SignalFinding], visits: l
 def _main_report(pages: list[PageFact], recs: list[Recommendation], limitations: list[str]) -> str:
     recommended = [r for r in recs if r.status != "Недостаточно данных"]
     insufficient = [r for r in recs if r.status == "Недостаточно данных"]
-    lines = ["# Lead generation report", "", "## 1. Общая статистика", f"- Страниц: {len(pages)}", f"- Визитов: {sum(p.visits for p in pages)}", "", "## 2. Источники трафика"]
+    lines = ["# Lead generation report", "", "## 1. Общая статистика", f"- Страниц: {len(pages)}"]
+    total_visits = sum(p.visits for p in pages)
+    total_pageviews = sum(p.pageviews for p in pages)
+    if total_visits:
+        lines.append(f"- Визитов: {total_visits}")
+    if total_pageviews:
+        lines.append(f"- Просмотров страниц: {total_pageviews}")
+    if not total_visits and not total_pageviews:
+        lines.append("- Недостаточно данных о трафике страниц.")
+    lines += ["", "## 2. Источники трафика"]
     sources: dict[str, int] = {}
     for p in pages:
         for k, v in p.traffic_sources.items():
