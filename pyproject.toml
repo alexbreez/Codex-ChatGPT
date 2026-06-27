@@ -1,6 +1,24 @@
 [project]
 name = "metrika-lead-pipeline"
 version = "0.1.0"
+description = "Yandex Metrica analytics pipeline for test-drive lead form placement decisions"
+requires-python = ">=3.12"
+dependencies = ["requests", "pandas", "openpyxl", "python-dotenv", "pydantic", "pydantic-settings", "typer", "loguru", "PyYAML"]
 
 [project.optional-dependencies]
 test = ["pytest"]
+
+[project.scripts]
+metrika-leads = "src.cli:app"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
