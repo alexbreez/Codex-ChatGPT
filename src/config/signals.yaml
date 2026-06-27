@@ -1,0 +1,33 @@
+version: "1.0"
+signals:
+  - id: comparison
+    name: "сравнение моделей"
+    confidence: 0.8
+    all_patterns: ["(?i)(сравнение|vs|или|против)"]
+    min_model_mentions: 2
+    explanation: "В заголовке найдены слова сравнения и минимум две модели из конфигурации."
+  - id: prices
+    name: "цены"
+    confidence: 0.85
+    any_patterns: ["(?i)(цена|стоимость|сколько стоит)"]
+    explanation: "В тексте страницы обнаружены слова про цену или стоимость."
+  - id: trims
+    name: "комплектации"
+    confidence: 0.8
+    any_patterns: ["(?i)(комплектац|версия|оснащение)"]
+    explanation: "Обнаружены слова про комплектации, версии или оснащение."
+  - id: dealers
+    name: "дилеры"
+    confidence: 0.8
+    any_patterns: ["(?i)(где купить|дилер|салон)"]
+    explanation: "Обнаружены слова про дилеров, салоны или покупку."
+  - id: test_drive
+    name: "тест-драйв"
+    confidence: 0.9
+    any_patterns: ["(?i)(тест[ -]?драйв)"]
+    explanation: "Обнаружено словосочетание тест-драйв."
+  - id: news
+    name: "новость"
+    confidence: 0.7
+    any_patterns: ["(?i)(представили|анонсировали|показали|премьера)"]
+    explanation: "Обнаружены слова, характерные для новости."
