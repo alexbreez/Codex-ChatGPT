@@ -8,3 +8,8 @@ __pycache__/
 .ruff_cache/
 data/
 reports/
+.venv/
+.cache/
+.integration_config.yaml
+reports_integration/
+history_integration/
