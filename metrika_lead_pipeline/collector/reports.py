@@ -24,7 +24,7 @@ class MetrikaReportCollector:
 
     def collect_pages(self, date1: str, date2: str, filters: str | None = None) -> list[PageFact]:
         logger.info("Collecting pages report")
-        payload = self.client.request(["ym:s:visits", "ym:s:users", "ym:s:bounceRate", "ym:s:pageDepth", "ym:s:avgVisitDurationSeconds"], ["ym:s:pageURL", "ym:s:title"], date1, date2, filters)
+        payload = self.client.request(["ym:pv:pageviews", "ym:pv:users"], ["ym:pv:URL", "ym:pv:title"], date1, date2, filters)
         return self.normalizer.normalize_pages(payload)
 
     def collect_entry_pages(self, date1: str, date2: str, filters: str | None = None) -> set[str]:

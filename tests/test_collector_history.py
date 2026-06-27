@@ -12,6 +12,7 @@ from metrika_lead_pipeline.history.delta import DeltaEngine
 from metrika_lead_pipeline.history.storage import HistoryStorage
 from metrika_lead_pipeline.models import NormalizedMetrikaData, PageFact, SignalFinding, Recommendation
 from metrika_lead_pipeline.pipeline.automated import run_normalized
+from metrika_lead_pipeline.recommendations.engine import build_recommendations
 
 
 class FakeTransport:
@@ -21,8 +22,8 @@ class FakeTransport:
     def get(self, url: str, headers: dict[str, str], params: dict[str, object], timeout: float) -> dict[str, object]:
         self.calls += 1
         dimensions = str(params.get("dimensions", ""))
-        if "ym:s:pageURL,ym:s:title" in dimensions:
-            return {"data": [{"dimensions": [{"name": "/cars/a-vs-b"}, {"name": "Сравнение Model A vs Model B цена"}], "metrics": [150, 100, 10.0, 2.5, 90.0]}]}
+        if "ym:pv:URL,ym:pv:title" in dimensions:
+            return {"data": [{"dimensions": [{"name": "/cars/a-vs-b"}, {"name": "Сравнение Model A vs Model B цена"}], "metrics": [150, 100]}]}
         if "ym:s:startURL" in dimensions:
             return {"data": [{"dimensions": [{"name": "/cars/a-vs-b"}], "metrics": [150]}]}
         if "ym:s:lastsignTrafficSource" in dimensions:
@@ -53,6 +54,8 @@ def test_client_uses_cache_and_typed_collection(tmp_path: Path) -> None:
     collector = MetrikaReportCollector(client)
     data = collector.collect_all("2026-01-01", "2026-01-31")
     assert data.pages[0].url == "/cars/a-vs-b"
+    assert data.pages[0].pageviews == 150
+    assert data.pages[0].visits == 0
     assert data.visits[0].visit_id == "v1"
     first_calls = transport.calls
     collector.collect_pages("2026-01-01", "2026-01-31")
@@ -60,10 +63,12 @@ def test_client_uses_cache_and_typed_collection(tmp_path: Path) -> None:
 
 
 def test_normalizer_maps_page_fields() -> None:
-    payload = {"data": [{"dimensions": [{"name": "/u"}, {"name": "Title"}], "metrics": [3, 2, 1.0, 4.0, 5.0]}]}
+    payload = {"data": [{"dimensions": [{"name": "/u"}, {"name": "Title"}], "metrics": [3, 2]}]}
     page = MetrikaNormalizer().normalize_pages(payload)[0]
-    assert page.visits == 3
-    assert page.avg_time_seconds == 5.0
+    assert page.pageviews == 3
+    assert page.visits == 0
+    assert page.visitors == 2
+    assert page.avg_time_seconds is None
 
 
 def test_delta_engine_detects_candidate_changes() -> None:
@@ -80,6 +85,14 @@ def test_cli_compare_writes_report(tmp_path: Path) -> None:
     storage.save_run({"run_id": "b", "pages": [{"url": "/new"}], "signals": [], "recommendations": []})
     assert main(["compare", "--run-id", "a", "--run-id", "b", "--history-dir", str(tmp_path / "history"), "--output", str(tmp_path / "reports")]) == 0
     assert (tmp_path / "reports" / "changes_report.md").exists()
+
+
+def test_recommendations_use_pageviews_without_mislabeling_visits() -> None:
+    page = PageFact(url="/u", title="Цена Model A", pageviews=150, visitors=100)
+    rec = build_recommendations([page], {"/u": ["цены"]}, {"recommendation_rules": {"min_visits": 100, "commercial_signals": ["цены"]}})[0]
+    assert rec.status == "Гипотеза"
+    assert "просмотров страниц" in rec.reason
+    assert "визитов" not in rec.reason
 
 
 def test_full_integration_history_and_changes(tmp_path: Path) -> None:

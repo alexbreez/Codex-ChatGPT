@@ -35,7 +35,7 @@ class MetrikaNormalizer:
         pages: list[PageFact] = []
         for row in payload.get("data", []):
             try:
-                pages.append(PageFact(url=_dim(row, 0), title=_dim(row, 1), visits=int(_metric(row, 0)), visitors=int(_metric(row, 1)), bounce_rate=_metric(row, 2), page_depth=_metric(row, 3), avg_time_seconds=_metric(row, 4), raw=row))
+                pages.append(PageFact(url=_dim(row, 0), title=_dim(row, 1), pageviews=int(_metric(row, 0)), visitors=int(_metric(row, 1)), raw=row))
             except Exception as exc:
                 logger.error("Page normalization error: {}", exc)
         return pages
