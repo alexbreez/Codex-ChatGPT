@@ -21,6 +21,9 @@ class AppConfig:
     categories: list[str] = field(default_factory=list)
     outputs: dict[str, str] = field(default_factory=lambda: {"raw_dir": "data/raw", "report_dir": "reports"})
     thresholds: dict[str, Any] = field(default_factory=dict)
+    cache: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "dir": ".cache"})
+    history: dict[str, Any] = field(default_factory=lambda: {"dir": "history"})
+    comparison: dict[str, Any] = field(default_factory=dict)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:

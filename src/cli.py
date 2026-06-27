@@ -1,23 +1,67 @@
 from __future__ import annotations
 
-import json
+import argparse
 from pathlib import Path
-from typing import Annotated
+from typing import Sequence
 
-import typer
-from loguru import logger
-
-from src.pipeline.runner import run_pipeline
-
-app = typer.Typer(help="Yandex Metrica lead-generation analytics pipeline")
+from src.history.comparator import RunComparator, write_changes_report
+from src.history.storage import HistoryStorage
+from src.pipeline.automated import collect_and_analyze, resolve_period
 
 
-@app.command()
-def run(input_json: Annotated[Path, typer.Option(help="JSON with page rows already collected from Metrica")], visits_json: Annotated[Path | None, typer.Option(help="Optional JSON with visit paths")] = None, output_dir: Annotated[Path, typer.Option()] = Path("reports")) -> None:
-    rows = json.loads(input_json.read_text(encoding="utf-8"))
-    visits = json.loads(visits_json.read_text(encoding="utf-8")) if visits_json else []
-    pages, signals, recs = run_pipeline(rows, visits, output_dir=output_dir)
-    logger.info("Processed {} pages, {} signal rows, {} recommendations", len(pages), len(signals), len(recs))
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="metrika-leads", description="Automated Yandex Metrica lead analytics pipeline")
+    sub = parser.add_subparsers(dest="command", required=True)
+    collect = sub.add_parser("collect", help="Collect Metrika data and run the full analytics pipeline")
+    _add_period_args(collect)
+    collect.add_argument("--region")
+    collect.add_argument("--brand")
+    collect.add_argument("--category")
+    collect.add_argument("--output", type=Path, default=Path("reports"))
+    compare = sub.add_parser("compare", help="Compare saved runs from history")
+    compare.add_argument("--run-id", action="append", dest="run_ids")
+    _add_period_args(compare)
+    compare.add_argument("--against")
+    compare.add_argument("--history-dir", type=Path, default=Path("history"))
+    compare.add_argument("--output", type=Path, default=Path("reports"))
+    return parser
+
+
+def _add_period_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--last-days", type=int)
+    parser.add_argument("--today", action="store_true")
+    parser.add_argument("--yesterday", action="store_true")
+    parser.add_argument("--month")
+    parser.add_argument("--from", dest="date_from")
+    parser.add_argument("--to", dest="date_to")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "collect":
+        collect_and_analyze(last_days=args.last_days, today=args.today, yesterday=args.yesterday, month=args.month, date_from=args.date_from, date_to=args.date_to, region=args.region, brand=args.brand, category=args.category, output=args.output)
+        return 0
+    if args.command == "compare":
+        storage = HistoryStorage(args.history_dir)
+        comparator = RunComparator(storage)
+        if args.run_ids and len(args.run_ids) == 2:
+            delta = comparator.compare_run_ids(args.run_ids[0], args.run_ids[1])
+        else:
+            runs = storage.list_runs()
+            if args.against == "previous-period" or args.against:
+                if len(runs) < 2:
+                    delta = comparator.delta_engine.compare(None, {})
+                else:
+                    delta = comparator.compare_run_ids(runs[-2], runs[-1])
+            else:
+                raise SystemExit("compare requires two --run-id values or --against")
+        write_changes_report(delta, args.output)
+        return 0
+    return 1
+
+
+def app() -> None:
+    raise SystemExit(main())
 
 
 if __name__ == "__main__":

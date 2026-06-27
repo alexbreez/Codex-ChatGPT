@@ -37,3 +37,32 @@ The input JSON format mirrors normalized Metrica rows, for example:
 ```
 
 Generated files include `report_pages.xlsx`, `report_signals.xlsx`, `report_visits.xlsx`, `lead_generation_report.md`, `decision_log.json`, and `decision_log.md`.
+
+## Почему токен Метрики не виден в репозитории
+
+OAuth-токен Яндекс.Метрики является секретом и не должен попадать в git-историю или pull request. Для локального запуска создайте файл `.env` в корне проекта:
+
+```bash
+YANDEX_METRIKA_TOKEN=your-token-here
+```
+
+Файл `.env` намеренно добавлен в `.gitignore`, поэтому токен будет доступен приложению через `python-dotenv`, но не будет отображаться в diff, PR или публичном репозитории. В git хранится только безопасный шаблон `.env.example`.
+
+## Автоматический сбор без ручного JSON
+
+Основной сценарий запуска теперь выполняет весь путь: сбор из Reporting API, нормализация, существующий pipeline, рекомендации, Decision Log, сохранение истории и сравнение с предыдущим запуском.
+
+```bash
+metrika-leads collect --last-days 30
+metrika-leads collect --today
+metrika-leads collect --yesterday
+metrika-leads collect --month 2026-05
+metrika-leads collect --from 2026-01-01 --to 2026-03-31 --region Москва --brand toyota --category sedan --output reports
+```
+
+Для сравнения сохранённых запусков используется история:
+
+```bash
+metrika-leads compare --run-id 2026-06-27_09-00-00 --run-id 2026-06-28_09-00-00
+metrika-leads compare --month 2026-05 --against 2026-04
+```
