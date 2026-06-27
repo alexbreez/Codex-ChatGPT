@@ -1,0 +1,17 @@
+version: "1.0"
+visit_rules:
+  - id: possible_commercial_intent
+    name: "возможное коммерческое намерение"
+    description: "Визит начался со страницы с сигналом цены или сравнение моделей."
+    entry_signals_any: ["цены", "сравнение моделей"]
+    status: "Гипотеза"
+    confidence: 0.65
+  - id: no_commercial_signals
+    name: "коммерческие сигналы отсутствуют"
+    description: "В визите обнаружены только новостные сигналы или сигналы отсутствуют."
+    only_signals_any: ["новость"]
+    status: "Подтверждено данными"
+    confidence: 0.7
+recommendation_rules:
+  min_visits: 100
+  commercial_signals: ["цены", "сравнение моделей", "комплектации", "дилеры", "тест-драйв"]
