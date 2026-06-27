@@ -1,0 +1,21 @@
+version: "1.0"
+api:
+  counter_id: ""
+  base_url: "https://api-metrika.yandex.net/stat/v1/data"
+periods:
+  - name: last_12_months
+    preset: last_12_months
+regions:
+  - name: russia
+    ids: []
+content_filters:
+  brand: []
+  category: []
+brands: []
+categories: []
+outputs:
+  raw_dir: data/raw
+  report_dir: reports
+thresholds:
+  min_visits_for_recommendation: 100
+  min_confidence_for_confirmed: 0.75
