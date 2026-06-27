@@ -1,15 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "metrika-lead-pipeline"
 version = "0.1.0"
 description = "Yandex Metrica analytics pipeline for test-drive lead form placement decisions"
 requires-python = ">=3.12"
-dependencies = ["requests", "pandas", "openpyxl", "python-dotenv", "pydantic", "pydantic-settings", "typer", "loguru", "PyYAML"]
+dependencies = []
+
+[project.optional-dependencies]
+full = ["requests", "pandas", "openpyxl", "python-dotenv", "pydantic", "typer", "loguru", "PyYAML"]
 
 [project.scripts]
-metrika-leads = "src.cli:app"
+metrika-leads = "metrika_lead_pipeline.cli:app"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["metrika_lead_pipeline*"]
+
+[tool.setuptools.package-data]
+metrika_lead_pipeline = ["config/*.yaml"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]

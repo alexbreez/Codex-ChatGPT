@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.cli import main
-from src.collector.cache import RequestCache
-from src.collector.client import MetrikaApiClient
-from src.collector.normalizer import MetrikaNormalizer
-from src.collector.reports import MetrikaReportCollector
-from src.history.delta import DeltaEngine
-from src.history.storage import HistoryStorage
-from src.models import NormalizedMetrikaData, PageFact, SignalFinding, Recommendation
-from src.pipeline.automated import run_normalized
+from metrika_lead_pipeline.cli import main
+from metrika_lead_pipeline.collector.cache import RequestCache
+from metrika_lead_pipeline.collector.client import MetrikaApiClient
+from metrika_lead_pipeline.collector.normalizer import MetrikaNormalizer
+from metrika_lead_pipeline.collector.reports import MetrikaReportCollector
+from metrika_lead_pipeline.history.delta import DeltaEngine
+from metrika_lead_pipeline.history.storage import HistoryStorage
+from metrika_lead_pipeline.models import NormalizedMetrikaData, PageFact, SignalFinding, Recommendation
+from metrika_lead_pipeline.pipeline.automated import run_normalized
 
 
 class FakeTransport:
