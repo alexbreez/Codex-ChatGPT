@@ -11,7 +11,7 @@ from metrika_lead_pipeline.collector.client import MetrikaApiClient as MetrikaCl
 def save_dataset(rows: list[dict[str, Any]], stem: str, output_dir: Path) -> None:
     """Backward-compatible raw dataset writer.
 
-    The active Reporting API client lives in ``src.collector.client``. This helper remains for
+    The active Reporting API client lives in ``metrika_lead_pipeline.collector.client``. This helper remains for
     callers that used the old API module and writes JSON/CSV plus an XLSX-named table. When
     pandas/openpyxl are installed, reports/writer handles true Excel output for final reports.
     """

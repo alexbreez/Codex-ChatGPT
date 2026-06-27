@@ -21,6 +21,7 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["metrika_lead_pipeline*"]
+namespaces = false
 
 [tool.setuptools.package-data]
 metrika_lead_pipeline = ["config/*.yaml"]
