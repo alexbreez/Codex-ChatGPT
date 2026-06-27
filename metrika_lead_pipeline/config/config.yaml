@@ -1,0 +1,42 @@
+version: "1.0"
+api:
+  counter_id: ""
+  base_url: "https://api-metrika.yandex.net/stat/v1/data"
+  oauth_env_var: "YANDEX_METRIKA_TOKEN"
+  timeout_seconds: 60
+  retry_attempts: 3
+  retry_backoff_seconds: 1.0
+  rate_limit_per_second: 5
+  page_limit: 100000
+cache:
+  enabled: true
+  dir: ".cache"
+periods:
+  - name: last_12_months
+    preset: last_12_months
+regions:
+  - name: russia
+    ids: []
+content_filters:
+  brand: []
+  category: []
+brands: ["Model A", "Model B"]
+categories: []
+outputs:
+  raw_dir: data/raw
+  report_dir: reports
+  max_report_pages: 500
+  max_recommendations: 500
+  max_decision_log_records: 1000
+  max_snapshot_pages: 5000
+  max_snapshot_signals: 5000
+  max_snapshot_recommendations: 5000
+  max_snapshot_decisions: 5000
+history:
+  dir: history
+comparison:
+  confidence_delta_threshold: 0.05
+  traffic_delta_threshold: 0.1
+thresholds:
+  min_visits_for_recommendation: 100
+  min_confidence_for_confirmed: 0.75
