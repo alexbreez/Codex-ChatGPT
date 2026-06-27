@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.models import PageFact
+from metrika_lead_pipeline.models import PageFact
 
 
 def build_page_facts(rows: list[dict[str, Any]], entry_urls: set[str] | None = None) -> list[PageFact]:

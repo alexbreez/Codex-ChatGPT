@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from src.pipeline.runner import run_pipeline
-from src.signals.extractor import extract_signals
-from src.models import PageFact
+from metrika_lead_pipeline.pipeline.runner import run_pipeline
+from metrika_lead_pipeline.signals.extractor import extract_signals
+from metrika_lead_pipeline.models import PageFact
 
 
 def test_signal_extraction_prices() -> None:

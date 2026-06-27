@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.models import PageFact, Recommendation
+from metrika_lead_pipeline.models import PageFact, Recommendation
 
 
 def build_recommendations(pages: list[PageFact], page_signals: dict[str, list[str]], rules: dict[str, object]) -> list[Recommendation]:

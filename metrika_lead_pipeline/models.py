@@ -35,6 +35,72 @@ class PageFact(DumpMixin):
 
 
 @dataclass
+class VisitFact(DumpMixin):
+    visit_id: str
+    entry_url: str | None = None
+    page_urls: list[str] = field(default_factory=list)
+    goal_ids: list[str] = field(default_factory=list)
+    search_queries: list[str] = field(default_factory=list)
+    device: str | None = None
+    region: str | None = None
+    source: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SourceFact(DumpMixin):
+    source: str
+    visits: int = 0
+    url: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class GoalFact(DumpMixin):
+    goal_id: str
+    goal_name: str = ""
+    url: str | None = None
+    visits: int = 0
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SearchQueryFact(DumpMixin):
+    query: str
+    visits: int = 0
+    url: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DeviceFact(DumpMixin):
+    device: str
+    visits: int = 0
+    url: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RegionFact(DumpMixin):
+    region: str
+    visits: int = 0
+    url: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class NormalizedMetrikaData(DumpMixin):
+    pages: list[PageFact] = field(default_factory=list)
+    visits: list[VisitFact] = field(default_factory=list)
+    sources: list[SourceFact] = field(default_factory=list)
+    goals: list[GoalFact] = field(default_factory=list)
+    search_queries: list[SearchQueryFact] = field(default_factory=list)
+    devices: list[DeviceFact] = field(default_factory=list)
+    regions: list[RegionFact] = field(default_factory=list)
+    limitations: list[str] = field(default_factory=list)
+
+
+@dataclass
 class SignalFinding(DumpMixin):
     url: str
     signal: str
@@ -95,3 +161,6 @@ class DecisionRecord(DumpMixin):
     explanation: str
     recommendations: list[str] = field(default_factory=list)
     limitations: list[str] = field(default_factory=list)
+    event_type: str = "analytical_decision"
+    previous_state: dict[str, Any] | None = None
+    new_state: dict[str, Any] | None = None

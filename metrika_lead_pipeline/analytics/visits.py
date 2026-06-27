@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.models import RuleEvaluation, VisitAnalysis
+from metrika_lead_pipeline.models import RuleEvaluation, VisitAnalysis
 
 
 def analyze_visits(visits: list[dict[str, Any]], page_signals: dict[str, list[str]], rules_config: dict[str, Any]) -> list[VisitAnalysis]:

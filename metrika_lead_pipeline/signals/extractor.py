@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from src.models import PageFact, RuleEvaluation, SignalFinding
+from metrika_lead_pipeline.models import PageFact, RuleEvaluation, SignalFinding
 
 
 def extract_signals(page: PageFact, signal_config: dict[str, Any], models: list[str] | None = None) -> tuple[list[SignalFinding], list[RuleEvaluation]]:

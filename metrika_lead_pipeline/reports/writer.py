@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from src.models import DecisionRecord, PageFact, Recommendation, SignalFinding, VisitAnalysis
+from metrika_lead_pipeline.models import DecisionRecord, PageFact, Recommendation, SignalFinding, VisitAnalysis
 
 try:
     import pandas as pd  # type: ignore
@@ -27,7 +27,6 @@ def _write_table(path: Path, rows: list[dict[str, Any]]) -> None:
     if pd is not None:
         pd.DataFrame(rows).to_excel(path, index=False)
         return
-    # Dependency-light fallback for constrained environments: write CSV content with requested filename.
     with path.open("w", encoding="utf-8", newline="") as fh:
         if not rows:
             fh.write("")
