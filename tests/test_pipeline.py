@@ -29,3 +29,32 @@ def test_pipeline_writes_reports(tmp_path: Path) -> None:
     decision_log = json.loads((tmp_path / "decision_log.json").read_text(encoding="utf-8"))
     assert decision_log[0]["facts"]["url"] == "/cars/a-vs-b"
     assert (tmp_path / "report_pages.xlsx").exists()
+
+
+def test_report_outputs_are_limited_by_config(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("""
+version: "1.0"
+brands: ["Model A", "Model B"]
+categories: []
+outputs:
+  report_dir: reports
+  max_markdown_items: 1
+  max_decision_log_items: 1
+history:
+  dir: history
+""", encoding="utf-8")
+    rows = [
+        {"url": f"/cars/{i}", "title": f"Цена Model A {i}", "pageviews": 150, "visitors": 100}
+        for i in range(3)
+    ]
+
+    run_pipeline(rows, config_path=config_path, output_dir=tmp_path / "reports")
+
+    decision_log = json.loads((tmp_path / "reports" / "decision_log.json").read_text(encoding="utf-8"))
+    metadata = json.loads((tmp_path / "reports" / "report_metadata.json").read_text(encoding="utf-8"))
+    main_report = (tmp_path / "reports" / "lead_generation_report.md").read_text(encoding="utf-8")
+
+    assert len(decision_log) == 1
+    assert metadata["truncated"]["decision_log"] == {"stored": 1, "total": 3}
+    assert "Показано 1 из 3" in main_report

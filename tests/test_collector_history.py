@@ -8,7 +8,8 @@ from metrika_lead_pipeline.collector.cache import RequestCache
 from metrika_lead_pipeline.collector.client import MetrikaApiClient
 from metrika_lead_pipeline.collector.normalizer import MetrikaNormalizer
 from metrika_lead_pipeline.collector.reports import MetrikaReportCollector
-from metrika_lead_pipeline.history.delta import DeltaEngine
+from metrika_lead_pipeline.history.delta import DeltaEngine, DeltaResult
+from metrika_lead_pipeline.history.comparator import write_changes_report
 from metrika_lead_pipeline.history.storage import HistoryStorage
 from metrika_lead_pipeline.models import NormalizedMetrikaData, PageFact, SignalFinding, Recommendation
 from metrika_lead_pipeline.pipeline.automated import run_normalized
@@ -124,3 +125,53 @@ def test_full_integration_history_and_changes(tmp_path: Path) -> None:
     assert snapshot["recommendations"][0]["status"] == "Гипотеза"
     assert (tmp_path / "reports" / "decision_log.json").exists()
     assert (tmp_path / "reports" / "changes_report.md").exists()
+
+
+def test_changes_report_limits_items(tmp_path: Path) -> None:
+    delta = DeltaResult(new_candidates={f"/u{i}": "reason" for i in range(3)})
+
+    write_changes_report(delta, tmp_path, max_items=1)
+
+    text = (tmp_path / "changes_report.md").read_text(encoding="utf-8")
+    assert "/u0" in text
+    assert "/u1" not in text
+    assert "Показано 1 из 3" in text
+
+
+def test_run_normalized_truncates_history_snapshot(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    history_dir = tmp_path / "history"
+    config_path.write_text(f"""
+version: "1.0"
+brands: ["Model A", "Model B"]
+categories: []
+outputs:
+  report_dir: reports
+  max_markdown_items: 1
+  max_decision_log_items: 1
+  max_changes_report_items: 1
+history:
+  dir: "{history_dir}"
+  max_snapshot_pages: 2
+  max_snapshot_signals: 2
+  max_snapshot_recommendations: 2
+  max_snapshot_decisions: 2
+  max_snapshot_comparison_items: 1
+""", encoding="utf-8")
+    data = NormalizedMetrikaData(
+        pages=[
+            PageFact(url=f"/cars/{i}", title=f"Цена Model A {i}", pageviews=150, visitors=100)
+            for i in range(3)
+        ],
+        limitations=[],
+    )
+
+    snapshot = run_normalized(data, "2026-01-01", "2026-01-31", tmp_path / "reports", config_path)
+
+    assert len(snapshot["pages"]) == 2
+    assert len(snapshot["decision_log"]) == 2
+    assert snapshot["truncated"]["pages"] == {"stored": 2, "total": 3}
+    saved_snapshot_path = next(history_dir.glob("*/snapshot.json"))
+    saved_snapshot = json.loads(saved_snapshot_path.read_text(encoding="utf-8"))
+    assert len(saved_snapshot["pages"]) == 2
+    assert saved_snapshot["truncated"]["decision_log"] == {"stored": 2, "total": 3}

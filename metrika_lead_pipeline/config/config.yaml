@@ -25,8 +25,16 @@ categories: []
 outputs:
   raw_dir: data/raw
   report_dir: reports
+  max_markdown_items: 500
+  max_decision_log_items: 1000
+  max_changes_report_items: 500
 history:
   dir: history
+  max_snapshot_pages: 5000
+  max_snapshot_signals: 5000
+  max_snapshot_recommendations: 5000
+  max_snapshot_decisions: 5000
+  max_snapshot_comparison_items: 500
 comparison:
   confidence_delta_threshold: 0.05
   traffic_delta_threshold: 0.1
