@@ -174,3 +174,6 @@ def test_run_normalized_truncates_snapshot_and_reports_limitations(tmp_path: Pat
     assert "API limit" in report
     assert report.count("API limit") == 1
     assert "Ограничения объёма вывода" in report
+    metadata = json.loads((tmp_path / "reports" / "report_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["counts"]["pages"] == 3
+    assert metadata["truncated"]["pages"] == {"stored": 1, "total": 3}

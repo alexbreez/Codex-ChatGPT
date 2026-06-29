@@ -28,6 +28,10 @@ outputs:
   max_report_pages: 500
   max_recommendations: 500
   max_decision_log_records: 1000
+  max_markdown_items: 100
+  max_decision_log_items: 1000
+  max_changes_report_items: 100
+  max_snapshot_comparison_items: 1000
   max_snapshot_pages: 5000
   max_snapshot_signals: 5000
   max_snapshot_recommendations: 5000

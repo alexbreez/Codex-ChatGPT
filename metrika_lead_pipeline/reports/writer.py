@@ -40,8 +40,9 @@ def write_reports(pages: list[PageFact], signals: list[SignalFinding], visits: l
     output_dir.mkdir(parents=True, exist_ok=True)
     limits = output_limits or {}
     max_pages = int(limits.get("max_report_pages", len(pages)))
-    max_decisions = int(limits.get("max_decision_log_records", len(decisions)))
+    max_decisions = int(limits.get("max_decision_log_items", limits.get("max_decision_log_records", len(decisions))))
     max_recommendations = int(limits.get("max_recommendations", len(recommendations)))
+    max_markdown_items = int(limits.get("max_markdown_items", max_recommendations))
     limited_pages = pages[:max_pages]
     limited_decisions = decisions[:max_decisions]
     limited_recommendations = recommendations[:max_recommendations]
@@ -52,9 +53,26 @@ def write_reports(pages: list[PageFact], signals: list[SignalFinding], visits: l
     _write_table(output_dir / "report_recommendations.xlsx", [_recommendation_row(r) for r in limited_recommendations])
     decision_payload: object = {"truncated": truncation, "records": [d.model_dump() for d in limited_decisions]} if truncation else [d.model_dump() for d in limited_decisions]
     (output_dir / "decision_log.json").write_text(json.dumps(decision_payload, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
-    (output_dir / "decision_log.md").write_text(_decision_md(limited_decisions, truncation), encoding="utf-8")
-    (output_dir / "lead_generation_report.md").write_text(_main_report(limited_pages, limited_recommendations, limitations, truncation), encoding="utf-8")
+    (output_dir / "decision_log.md").write_text(_decision_md(limited_decisions[:max_markdown_items], truncation), encoding="utf-8")
+    (output_dir / "lead_generation_report.md").write_text(_main_report(limited_pages, limited_recommendations[:max_markdown_items], limitations, truncation), encoding="utf-8")
+    _write_report_metadata(output_dir, pages, signals, visits, recommendations, decisions, limits, truncation)
 
+
+
+def _write_report_metadata(output_dir: Path, pages: list[PageFact], signals: list[SignalFinding], visits: list[VisitAnalysis], recommendations: list[Recommendation], decisions: list[DecisionRecord], limits: dict[str, int], truncation: dict[str, dict[str, int]]) -> None:
+    metadata = {
+        "generated_at": datetime.now().isoformat(),
+        "counts": {
+            "pages": len(pages),
+            "signals": len(signals),
+            "visits": len(visits),
+            "recommendations": len(recommendations),
+            "decision_log": len(decisions),
+        },
+        "limits": limits,
+        "truncated": truncation,
+    }
+    (output_dir / "report_metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
 
 
 def _recommendation_row(rec: Recommendation) -> dict[str, Any]:

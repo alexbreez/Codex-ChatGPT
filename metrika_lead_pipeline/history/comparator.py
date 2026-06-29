@@ -28,25 +28,31 @@ class RunComparator:
         return self.delta_engine.compare(previous, current_snapshot)
 
 
-def write_changes_report(delta: DeltaResult, output_dir: Path) -> Path:
+def write_changes_report(delta: DeltaResult, output_dir: Path, max_items: int | None = None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / "changes_report.md"
+    limit = max_items if max_items is not None else 1000000
     lines = ["# Changes report", "", "## 1. Что изменилось с прошлого запуска"]
     if delta.limitations:
         lines += [f"- {item}" for item in delta.limitations]
     lines += [f"- Новые страницы: {len(delta.new_pages)}", f"- Исчезнувшие страницы: {len(delta.disappeared_pages)}"]
-    lines += ["", "## 2. Новые кандидаты"] + ([f"- {u}: {r}" for u, r in delta.new_candidates.items()] or ["- Нет"])
-    lines += ["", "## 3. Потерянные кандидаты"] + ([f"- {u}: {r}" for u, r in delta.lost_candidates.items()] or ["- Нет"])
-    lines += ["", "## 4. Изменившиеся рекомендации"] + ([f"- {u}: {v}" for u, v in delta.recommendation_changes.items()] or ["- Нет"])
-    lines += ["", "## 5. Изменившиеся сигналы"] + ([f"- {u}: новые {v}" for u, v in delta.new_commercial_signals.items()] + [f"- {u}: исчезли {v}" for u, v in delta.disappeared_commercial_signals.items()] or ["- Нет"])
+    lines += ["", "## 2. Новые кандидаты"] + (_limited_items(delta.new_candidates, limit) or ["- Нет"])
+    lines += ["", "## 3. Потерянные кандидаты"] + (_limited_items(delta.lost_candidates, limit) or ["- Нет"])
+    lines += ["", "## 4. Изменившиеся рекомендации"] + (_limited_items(delta.recommendation_changes, limit) or ["- Нет"])
+    signal_lines = [f"- {u}: новые {v}" for u, v in list(delta.new_commercial_signals.items())[:limit]] + [f"- {u}: исчезли {v}" for u, v in list(delta.disappeared_commercial_signals.items())[:limit]]
+    lines += ["", "## 5. Изменившиеся сигналы"] + (signal_lines or ["- Нет"])
     lines += ["", "## 6. Самый большой рост"] + _largest(delta.confidence_changes, reverse=True)
     lines += ["", "## 7. Самое большое падение"] + _largest(delta.confidence_changes, reverse=False)
-    lines += ["", "## 8. Изменения источников трафика"] + ([f"- {u}: {v}" for u, v in delta.source_changes.items()] or ["- Нет"])
-    lines += ["", "## 9. Изменения поискового трафика"] + ([f"- {u}: {v}" for u, v in delta.search_traffic_changes.items()] or ["- Нет"])
+    lines += ["", "## 8. Изменения источников трафика"] + (_limited_items(delta.source_changes, limit) or ["- Нет"])
+    lines += ["", "## 9. Изменения поискового трафика"] + (_limited_items(delta.search_traffic_changes, limit) or ["- Нет"])
     lines += ["", "## 10. Все изменения, которые могли повлиять на эффективность размещения формы"]
-    lines += ([f"- {u}: {r}" for u, r in {**delta.new_candidates, **delta.lost_candidates}.items()] or ["- Нет"])
+    lines += (_limited_items({**delta.new_candidates, **delta.lost_candidates}, limit) or ["- Нет"])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _limited_items(values: dict[str, Any], limit: int) -> list[str]:
+    return [f"- {u}: {v}" for u, v in list(values.items())[:limit]]
 
 
 def _largest(values: dict[str, float], reverse: bool) -> list[str]:

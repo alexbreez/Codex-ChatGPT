@@ -82,11 +82,31 @@ def run_normalized(normalized: NormalizedMetrikaData, date_from: str, date_to: s
     storage = HistoryStorage(Path(cfg.history.get("dir", "history")))
     comparator = RunComparator(storage)
     delta = comparator.compare_with_previous(snapshot)
-    write_changes_report(delta, output)
-    snapshot["comparison"] = delta.model_dump()
+    write_changes_report(delta, output, int(limits.get("max_changes_report_items", 100)))
+    snapshot["comparison"] = _limit_comparison(delta.model_dump(), int(limits.get("max_snapshot_comparison_items", 1000)))
     storage.save_run(snapshot, output)
     logger.info("Automated run completed: {}", run_id)
     return snapshot
+
+
+def _limit_comparison(comparison: dict[str, Any], max_items: int) -> dict[str, Any]:
+    limited: dict[str, Any] = {}
+    truncated: dict[str, dict[str, int]] = {}
+    for key, value in comparison.items():
+        if isinstance(value, list):
+            limited[key] = value[:max_items]
+            if len(value) > max_items:
+                truncated[key] = {"stored": max_items, "total": len(value)}
+        elif isinstance(value, dict):
+            items = list(value.items())
+            limited[key] = dict(items[:max_items])
+            if len(items) > max_items:
+                truncated[key] = {"stored": max_items, "total": len(items)}
+        else:
+            limited[key] = value
+    if truncated:
+        limited["truncated"] = truncated
+    return limited
 
 
 def _snapshot_truncation(items: dict[str, tuple[int, int]]) -> dict[str, dict[str, int]]:
