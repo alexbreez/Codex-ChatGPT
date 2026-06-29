@@ -125,15 +125,54 @@ def _format_limited_list(items: list[str], total: int) -> list[str]:
     return lines
 
 
+def _score_summary(r: Recommendation) -> str:
+    return (
+        f"intent={r.intent_score:.1f}, "
+        f"opportunity={r.opportunity_score:.1f}, "
+        f"risk={r.risk_score:.1f}, "
+        f"stage_confidence={r.stage_confidence:.2f}, "
+        f"ranking={r.ranking_score:.1f}"
+    )
+
+
+def _action_line(r: Recommendation) -> str:
+    form_state = "форма разрешена" if r.form_allowed else "форма не разрешена"
+    if r.form_prohibited:
+        form_state = "форма запрещена"
+    review_state = "ручная проверка нужна" if r.manual_review_required else "ручная проверка не обязательна"
+    experiment = f", experiment={r.experiment_type}" if r.experiment_type else ""
+    return (
+        f"- {r.url} — action={r.recommendation}, cta={r.recommended_cta_type}, "
+        f"{form_state}, {review_state}{experiment}; "
+        f"{_score_summary(r)}. {r.reason}"
+    )
+
+
 def _main_report(pages: list[PageFact], recs: list[Recommendation], limitations: list[str], max_items: int = DEFAULT_MARKDOWN_ITEMS) -> str:
-    recommended = [r for r in recs if r.status != "Недостаточно данных"]
+    active = [r for r in recs if r.status != "Недостаточно данных"]
     insufficient = [r for r in recs if r.status == "Недостаточно данных"]
 
-    limited_recommended = _limited(recommended, max_items)
-    limited_insufficient = _limited(insufficient, max_items)
-    limited_no_signal = _limited([r for r in insufficient if "Коммерческие сигналы не обнаружены." in r.limitations], max_items)
+    form_candidates = [r for r in active if r.form_allowed and not r.form_prohibited]
+    prohibited = [r for r in recs if r.form_prohibited]
+    distinguishing_tests = [r for r in active if r.experiment_type == "distinguishing_test"]
+    early_or_bridge = [r for r in active if r.recommended_cta_type in {"early_cta", "bridge", "bridge_or_early_cta_vs_form", "early_cta_vs_commitment_cta"}]
+    manual_review = [r for r in recs if r.manual_review_required and not r.form_prohibited]
 
-    lines = ["# Lead generation report", "", "## 1. Общая статистика", f"- Страниц: {len(pages)}"]
+    limited_active = _limited(active, max_items)
+    limited_form_candidates = _limited(form_candidates, max_items)
+    limited_prohibited = _limited(prohibited, max_items)
+    limited_distinguishing_tests = _limited(distinguishing_tests, max_items)
+    limited_early_or_bridge = _limited(early_or_bridge, max_items)
+    limited_manual_review = _limited(manual_review, max_items)
+    limited_insufficient = _limited(insufficient, max_items)
+
+    lines = [
+        "# Lead generation report",
+        "",
+        "## 1. Общая статистика",
+        f"- Страниц: {len(pages)}",
+    ]
+
     total_visits = sum(p.visits for p in pages)
     total_pageviews = sum(p.pageviews for p in pages)
     if total_visits:
@@ -150,32 +189,53 @@ def _main_report(pages: list[PageFact], recs: list[Recommendation], limitations:
             sources[k] = sources.get(k, 0) + int(v)
     lines += [f"- {k}: {v}" for k, v in sorted(sources.items())] or ["- Недостаточно данных об источниках."]
 
-    lines += ["", "## 3. Материалы с коммерческими сигналами"]
-    lines += _format_limited_list([f"- {r.url}: {', '.join(r.detected_signals)}" for r in limited_recommended], len(recommended))
+    lines += [
+        "",
+        "## 3. Очередь действий по методологии v2",
+        "- Отчёт больше не трактует вовлечённое автомобильное чтение как автоматическое доказательство покупательского намерения.",
+        "- Решение строится через отдельные intent_score, opportunity_score, risk_score, stage_confidence и ranking_score.",
+    ]
+    lines += _format_limited_list([_action_line(r) for r in limited_active], len(active))
 
-    lines += ["", "## 4. Материалы без коммерческих сигналов"]
-    lines += _format_limited_list([f"- {r.url}" for r in limited_no_signal], len([r for r in insufficient if "Коммерческие сигналы не обнаружены." in r.limitations]))
+    lines += ["", "## 4. Кандидаты, где форма разрешена"]
+    lines += _format_limited_list([_action_line(r) for r in limited_form_candidates], len(form_candidates))
 
-    lines += ["", "## 5. Страницы, которые рекомендуется протестировать для установки формы"]
-    lines += _format_limited_list([f"- {r.url} — {r.status}, уверенность {r.confidence:.2f}. {r.reason}" for r in limited_recommended], len(recommended))
+    lines += ["", "## 5. Страницы, где форма запрещена"]
+    lines += _format_limited_list([_action_line(r) for r in limited_prohibited], len(prohibited))
 
-    lines += ["", "## 6. Страницы, по которым недостаточно данных"]
+    lines += ["", "## 6. Risk/ownership, Discover и спорные страницы: различающий тест"]
+    lines += _format_limited_list([_action_line(r) for r in limited_distinguishing_tests], len(distinguishing_tests))
+
+    lines += ["", "## 7. Early CTA и bridge вместо преждевременной формы"]
+    lines += _format_limited_list([_action_line(r) for r in limited_early_or_bridge], len(early_or_bridge))
+
+    lines += ["", "## 8. Страницы, требующие ручной проверки"]
+    lines += _format_limited_list([_action_line(r) for r in limited_manual_review], len(manual_review))
+
+    lines += ["", "## 9. Страницы, по которым недостаточно данных"]
     lines += _format_limited_list([f"- {r.url}: {'; '.join(r.limitations)}" for r in limited_insufficient], len(insufficient))
 
-    lines += ["", "## 7. Страницы, требующие ручной проверки", "- Страницы с гипотезами требуют ручной проверки перед внедрением формы."]
+    lines += ["", "## 10. Ограничения анализа"] + [f"- {l}" for l in limitations]
 
-    lines += ["", "## 8. Все гипотезы, которые были сформированы системой"]
-    lines += _format_limited_list([f"- {r.url}: {r.reason}" for r in limited_recommended], len(recommended))
-
-    lines += ["", "## 9. Ограничения анализа"] + [f"- {l}" for l in limitations]
-    if len(limited_recommended) < len(recommended) or len(limited_insufficient) < len(insufficient):
+    if any(
+        [
+            len(limited_active) < len(active),
+            len(limited_form_candidates) < len(form_candidates),
+            len(limited_prohibited) < len(prohibited),
+            len(limited_distinguishing_tests) < len(distinguishing_tests),
+            len(limited_early_or_bridge) < len(early_or_bridge),
+            len(limited_manual_review) < len(manual_review),
+            len(limited_insufficient) < len(insufficient),
+        ]
+    ):
         lines += [
             "",
-            "## 10. Ограничения размера вывода",
+            "## 11. Ограничения размера вывода",
             f"- Markdown-списки ограничены до {max_items} записей на раздел.",
-            f"- Рекомендованных страниц всего: {len(recommended)}, показано: {len(limited_recommended)}.",
+            f"- Активных решений всего: {len(active)}, показано: {len(limited_active)}.",
             f"- Страниц с недостатком данных всего: {len(insufficient)}, показано: {len(limited_insufficient)}.",
         ]
+
     return "\n".join(lines) + "\n"
 
 
@@ -187,8 +247,53 @@ def _decision_md(decisions: list[DecisionRecord], max_items: int = DEFAULT_DECIS
     lines.append("")
 
     for d in limited_decisions:
-        lines += [f"## {d.decision_id}", f"- Статус: {d.final_status}", f"- Уверенность: {d.confidence:.2f}", f"- Объяснение: {d.explanation}", "### Сработавшие правила"]
+        lines += [
+            f"## {d.decision_id}",
+            f"- Статус: {d.final_status}",
+            f"- Уверенность: {d.confidence:.2f}",
+            f"- Recommendation: {d.recommendation}",
+            f"- CTA type: {d.recommended_cta_type}",
+            f"- Page role: {d.page_role}",
+            f"- Job hypothesis: {d.job_hypothesis}",
+            f"- Stage hypothesis: {d.stage_hypothesis}",
+            f"- Stage confidence: {d.stage_confidence:.2f}",
+            f"- Form allowed: {d.form_allowed}",
+            f"- Form prohibited: {d.form_prohibited}",
+            f"- UX risk: {d.ux_risk_level}",
+            f"- Manual review required: {d.manual_review_required}",
+            f"- Experiment type: {d.experiment_type or 'none'}",
+            f"- Объяснение: {d.explanation}",
+        ]
+
+        if d.prohibition_reason:
+            lines.append(f"- Причина запрета формы: {d.prohibition_reason}")
+
+        lines += ["### Scores"]
+        if d.scores:
+            lines += [f"- {key}: {value}" for key, value in d.scores.items()]
+        else:
+            lines += ["- Нет"]
+
+        lines += ["### Сработавшие сигналы"]
+        if d.triggered_signals:
+            for group, values in d.triggered_signals.items():
+                lines.append(f"- {group}: {', '.join(values) if values else 'нет'}")
+        else:
+            lines += ["- Нет"]
+
+        lines += ["### Сработавшие ограничения"]
+        lines += [f"- {constraint}" for constraint in d.triggered_constraints] or ["- Нет"]
+
+        lines += ["### Сработавшие правила"]
         lines += [f"- {r.rule_id}: {r.reason}" for r in d.triggered_rules] or ["- Нет"]
-        lines += ["### Несработавшие правила"] + ([f"- {r.rule_id}: {r.reason}" for r in d.non_triggered_rules] or ["- Нет"])
-        lines += ["### Ограничения"] + ([f"- {l}" for l in d.limitations] or ["- Нет"])
+
+        lines += ["### Несработавшие правила"]
+        lines += [f"- {r.rule_id}: {r.reason}" for r in d.non_triggered_rules] or ["- Нет"]
+
+        lines += ["### Ограничения данных"]
+        lines += [f"- {l}" for l in d.data_limitations] or ["- Нет"]
+
+        lines += ["### Все ограничения"]
+        lines += [f"- {l}" for l in d.limitations] or ["- Нет"]
+
     return "\n".join(lines) + "\n"
