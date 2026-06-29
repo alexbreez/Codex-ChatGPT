@@ -1,17 +1,41 @@
-version: "1.0"
+version: "2.0"
 visit_rules:
   - id: possible_commercial_intent
     name: "возможное коммерческое намерение"
-    description: "Визит начался со страницы с сигналом цены или сравнение моделей."
-    entry_signals_any: ["цены", "сравнение моделей"]
+    description: "Визит начался со страницы с purchase- или choice-сигналом."
+    entry_signals_any: ["цены", "сравнение моделей", "комплектации", "дилеры", "тест-драйв", "категория/бюджет"]
     status: "Гипотеза"
     confidence: 0.65
+
   - id: no_commercial_signals
     name: "коммерческие сигналы отсутствуют"
     description: "В визите обнаружены только новостные сигналы или сигналы отсутствуют."
     only_signals_any: ["новость"]
     status: "Подтверждено данными"
     confidence: 0.7
+
 recommendation_rules:
   min_visits: 100
-  commercial_signals: ["цены", "сравнение моделей", "комплектации", "дилеры", "тест-драйв"]
+
+  purchase_signals: ["цены", "комплектации", "дилеры", "тест-драйв"]
+  choice_signals: ["сравнение моделей", "категория/бюджет"]
+  risk_signals: ["risk/ownership"]
+  cold_news_signals: ["новость"]
+
+  commercial_signals: ["цены", "сравнение моделей", "комплектации", "дилеры", "тест-драйв", "категория/бюджет"]
+
+  form_prohibited_signals:
+    - "отзывная кампания по безопасности"
+    - "аварии и происшествия"
+
+  form_prohibited_page_roles:
+    - "tragedy_or_accident"
+    - "safety_recall"
+    - "urgent_news"
+    - "market_statistics"
+
+  scoring:
+    high_intent_threshold: 70
+    high_opportunity_threshold: 50
+    high_risk_threshold: 60
+    min_stage_confidence_for_form: 0.55

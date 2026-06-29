@@ -146,6 +146,33 @@ class Recommendation(DumpMixin):
     status: DecisionStatus
     limitations: list[str] = field(default_factory=list)
 
+    # Methodology v2 fields. These defaults preserve backward compatibility with
+    # existing tests and callers while allowing the recommendation engine to expose
+    # separate intent, opportunity, risk, confidence and ranking dimensions.
+    page_role: str = "unknown"
+    job_hypothesis: str = "unknown"
+    stage_hypothesis: str = "unknown"
+    traffic_context: str = "unknown"
+    behavior_context: str = "unknown"
+    purchase_signals: list[str] = field(default_factory=list)
+    choice_signals: list[str] = field(default_factory=list)
+    risk_signals: list[str] = field(default_factory=list)
+    cold_news_signals: list[str] = field(default_factory=list)
+    intent_score: float = 0.0
+    opportunity_score: float = 0.0
+    risk_score: float = 0.0
+    stage_confidence: float = 0.0
+    ranking_score: float = 0.0
+    recommendation: str = "manual_review"
+    recommended_cta_type: str = "manual_review"
+    form_allowed: bool = False
+    form_prohibited: bool = False
+    prohibition_reason: str = ""
+    ux_risk_level: str = "unknown"
+    data_limitations: list[str] = field(default_factory=list)
+    manual_review_required: bool = True
+    experiment_type: str = ""
+
 
 @dataclass
 class DecisionRecord(DumpMixin):
@@ -165,3 +192,24 @@ class DecisionRecord(DumpMixin):
     event_type: str = "analytical_decision"
     previous_state: dict[str, Any] | None = None
     new_state: dict[str, Any] | None = None
+
+    # Methodology v2 audit fields. Decision Log must explain not only why a form
+    # is recommended, but also why it is prohibited, postponed, replaced by bridge
+    # or routed to early CTA / manual review.
+    page_role: str = "unknown"
+    job_hypothesis: str = "unknown"
+    stage_hypothesis: str = "unknown"
+    stage_confidence: float = 0.0
+    scores: dict[str, float] = field(default_factory=dict)
+    triggered_signals: dict[str, list[str]] = field(default_factory=dict)
+    triggered_constraints: list[str] = field(default_factory=list)
+    recommendation: str = "manual_review"
+    recommended_cta_type: str = "manual_review"
+    form_allowed: bool = False
+    form_prohibited: bool = False
+    prohibition_reason: str = ""
+    ux_risk_level: str = "unknown"
+    rationale: str = ""
+    data_limitations: list[str] = field(default_factory=list)
+    manual_review_required: bool = True
+    experiment_type: str = ""

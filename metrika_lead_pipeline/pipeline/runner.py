@@ -60,11 +60,49 @@ def _build_decisions(pages: list[PageFact], recs: list[Recommendation], evals: d
     for page in pages:
         rec = by_url[page.url]
         rule_evals = evals.get(page.url, [])
+        triggered_signals = {
+            "purchase_signals": rec.purchase_signals,
+            "choice_signals": rec.choice_signals,
+            "risk_signals": rec.risk_signals,
+            "cold_news_signals": rec.cold_news_signals,
+        }
+        triggered_constraints: list[str] = []
+        if rec.form_prohibited:
+            triggered_constraints.append("form_prohibited")
+        if rec.manual_review_required:
+            triggered_constraints.append("manual_review_required")
+        if rec.experiment_type:
+            triggered_constraints.append(rec.experiment_type)
+        if rec.ux_risk_level in {"medium", "high"}:
+            triggered_constraints.append(f"ux_risk_{rec.ux_risk_level}")
+
         records.append(DecisionRecord(
             decision_id=str(uuid4()), created_at=datetime.now(timezone.utc), analytics_rules_version=rules_version,
             signal_dictionary_version=signal_version, config_version=config_version,
             facts=page.model_dump(), triggered_rules=[r for r in rule_evals if r.matched], non_triggered_rules=[r for r in rule_evals if not r.matched],
             final_status=rec.status, confidence=rec.confidence, explanation=rec.reason,
-            recommendations=[rec.url] if rec.status != "Недостаточно данных" else [], limitations=rec.limitations + global_limitations,
+            recommendations=[rec.recommendation] if rec.status != "Недостаточно данных" else [], limitations=rec.limitations + rec.data_limitations + global_limitations,
+            page_role=rec.page_role,
+            job_hypothesis=rec.job_hypothesis,
+            stage_hypothesis=rec.stage_hypothesis,
+            stage_confidence=rec.stage_confidence,
+            scores={
+                "intent_score": rec.intent_score,
+                "opportunity_score": rec.opportunity_score,
+                "risk_score": rec.risk_score,
+                "ranking_score": rec.ranking_score,
+            },
+            triggered_signals=triggered_signals,
+            triggered_constraints=triggered_constraints,
+            recommendation=rec.recommendation,
+            recommended_cta_type=rec.recommended_cta_type,
+            form_allowed=rec.form_allowed,
+            form_prohibited=rec.form_prohibited,
+            prohibition_reason=rec.prohibition_reason,
+            ux_risk_level=rec.ux_risk_level,
+            rationale=rec.reason,
+            data_limitations=rec.data_limitations,
+            manual_review_required=rec.manual_review_required,
+            experiment_type=rec.experiment_type,
         ))
     return records
