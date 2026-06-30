@@ -45,9 +45,13 @@ def _source_hits(page: PageFact, needles: tuple[str, ...]) -> int:
     return total
 
 
-def _traffic_context(page: PageFact) -> str:
+def _traffic_context(page: PageFact, page_role: str = "unknown") -> str:
     traffic, _ = _traffic_value(page)
-    if _share(page.discover_share) >= 0.5 or _source_hits(page, ("discover", "recommend", "дзен", "рекоменд")) > traffic * 0.5:
+    discover_share = _share(page.discover_share)
+    discover_hits = _source_hits(page, ("discover", "recommend", "дзен", "рекоменд"))
+    if page_role in {"price_or_trims", "test_drive"} and (discover_share >= 0.1 or discover_hits >= traffic * 0.1):
+        return "discover"
+    if discover_share >= 0.5 or discover_hits > traffic * 0.5:
         return "discover"
     if _share(page.search_traffic_share) >= 0.5 or _source_hits(page, ("search", "organic", "поиск")) > traffic * 0.5:
         return "search"
@@ -377,7 +381,7 @@ def build_recommendations(
         groups = _split_signals(signals, rec_rules)
         page_role = _page_role(groups)
         job_hypothesis = _job_hypothesis(page_role)
-        traffic_context = _traffic_context(page)
+        traffic_context = _traffic_context(page, page_role)
         behavior_context = _behavior_context(page)
         stage_hypothesis = _stage_hypothesis(page_role, traffic_context)
 

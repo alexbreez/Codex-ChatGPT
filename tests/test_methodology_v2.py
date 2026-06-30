@@ -96,6 +96,33 @@ def test_recommendation_system_traffic_on_price_page_gets_distinguishing_test() 
     assert rec.form_allowed is False
 
 
+def test_mixed_recommendation_system_traffic_on_test_drive_gets_distinguishing_test() -> None:
+    page = PageFact(
+        url="/content/video/model-a-test-drive",
+        title="Тест-драйв Model A",
+        pageviews=100,
+        visitors=80,
+        traffic_sources={
+            "Search engine traffic": 6,
+            "Recommendation system traffic": 5,
+            "Direct traffic": 3,
+            "Internal traffic": 1,
+            "Link traffic": 1,
+        },
+        discover_share=5 / 16,
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations([page], {page.url: ["тест-драйв"]}, _rules())[0]
+
+    assert rec.page_role == "test_drive"
+    assert rec.traffic_context == "discover"
+    assert rec.stage_hypothesis == "commercial_page_but_unproven_visit_stage"
+    assert rec.recommendation == "ab_test_early_vs_commitment"
+    assert rec.experiment_type == "distinguishing_test"
+    assert rec.form_allowed is False
+
+
 def test_search_price_page_can_allow_dealer_offer_form() -> None:
     page = PageFact(
         url="/cars/model-a-price",
