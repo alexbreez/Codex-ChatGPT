@@ -25,10 +25,15 @@ class FakeTransport:
         dimensions = str(params.get("dimensions", ""))
         if "ym:pv:URL,ym:pv:title" in dimensions:
             return {"data": [{"dimensions": [{"name": "/cars/a-vs-b"}, {"name": "Сравнение Model A vs Model B цена"}], "metrics": [150, 100]}]}
+        if "ym:s:startURL,ym:s:lastsignTrafficSource" in dimensions:
+            return {"data": [
+                {"dimensions": [{"name": "/cars/a-vs-b"}, {"name": "Search engine traffic"}], "metrics": [90]},
+                {"dimensions": [{"name": "/cars/a-vs-b"}, {"name": "Recommendation system traffic"}], "metrics": [60]},
+            ]}
         if "ym:s:startURL" in dimensions:
             return {"data": [{"dimensions": [{"name": "/cars/a-vs-b"}], "metrics": [150]}]}
         if "ym:s:lastsignTrafficSource" in dimensions:
-            return {"data": [{"dimensions": [{"name": "search"}], "metrics": [120]}]}
+            return {"data": [{"dimensions": [{"name": "Search engine traffic"}], "metrics": [120]}]}
         if "ym:s:visitID" in dimensions:
             return {"data": [{"dimensions": [{"name": "v1"}, {"name": "/cars/a-vs-b"}], "metrics": [1]}]}
         if "ym:s:searchPhrase" in dimensions:
@@ -57,6 +62,9 @@ def test_client_uses_cache_and_typed_collection(tmp_path: Path) -> None:
     assert data.pages[0].url == "/cars/a-vs-b"
     assert data.pages[0].pageviews == 150
     assert data.pages[0].visits == 0
+    assert data.pages[0].traffic_sources == {"Search engine traffic": 90, "Recommendation system traffic": 60}
+    assert data.pages[0].search_traffic_share == 0.6
+    assert data.pages[0].discover_share == 0.4
     assert data.visits[0].visit_id == "v1"
     first_calls = transport.calls
     collector.collect_pages("2026-01-01", "2026-01-31")
@@ -70,6 +78,37 @@ def test_normalizer_maps_page_fields() -> None:
     assert page.visits == 0
     assert page.visitors == 2
     assert page.avg_time_seconds is None
+
+
+def test_normalizer_merges_page_level_sources_without_copying_aggregate_sources() -> None:
+    normalizer = MetrikaNormalizer()
+    pages = [
+        PageFact(url="/cars/a", title="Model A цена"),
+        PageFact(url="/cars/b", title="Model B цена"),
+    ]
+    page_sources = normalizer.normalize_page_sources({"data": [
+        {"dimensions": [{"name": "/cars/a"}, {"name": "Search engine traffic"}], "metrics": [80]},
+        {"dimensions": [{"name": "/cars/a"}, {"name": "Recommendation system traffic"}], "metrics": [20]},
+        {"dimensions": [{"name": "/cars/a"}, {"name": "Search engine traffic"}], "metrics": [20]},
+    ]})
+
+    data = normalizer.merge(
+        pages,
+        set(),
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        page_sources=page_sources,
+    )
+
+    assert data.pages[0].traffic_sources == {"Search engine traffic": 100, "Recommendation system traffic": 20}
+    assert round(data.pages[0].search_traffic_share or 0, 4) == 0.8333
+    assert round(data.pages[0].discover_share or 0, 4) == 0.1667
+    assert data.pages[1].traffic_sources == {}
 
 
 def test_delta_engine_detects_candidate_changes() -> None:

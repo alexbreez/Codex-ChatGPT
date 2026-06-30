@@ -30,6 +30,29 @@ def _metric(row: dict[str, Any], index: int, default: float = 0) -> float:
     return float(metrics[index])
 
 
+def _source_hits(source_totals: dict[str, int], needles: tuple[str, ...]) -> int:
+    total = 0
+    for source, visits in source_totals.items():
+        source_l = str(source).lower()
+        if any(needle in source_l for needle in needles):
+            total += int(visits)
+    return total
+
+
+def _source_share(source_totals: dict[str, int], needles: tuple[str, ...]) -> float | None:
+    total = sum(int(visits) for visits in source_totals.values())
+    if total <= 0:
+        return None
+    return _source_hits(source_totals, needles) / total
+
+
+def _attach_source_shares(page: PageFact, source_totals: dict[str, int]) -> None:
+    page.search_traffic_share = _source_share(source_totals, ("search engine traffic", "search", "organic", "поиск"))
+    page.discover_share = _source_share(source_totals, ("recommendation system traffic", "recommend", "discover", "дзен", "рекоменд"))
+    page.internal_share = _source_share(source_totals, ("internal traffic", "internal", "внутрен"))
+    page.social_share = _source_share(source_totals, ("social network traffic", "social", "соц"))
+
+
 class MetrikaNormalizer:
     def normalize_pages(self, payload: dict[str, Any]) -> list[PageFact]:
         pages: list[PageFact] = []
@@ -45,6 +68,16 @@ class MetrikaNormalizer:
 
     def normalize_sources(self, payload: dict[str, Any]) -> list[SourceFact]:
         return [SourceFact(source=_dim(row, 0), visits=int(_metric(row, 0)), raw=row) for row in payload.get("data", [])]
+
+    def normalize_page_sources(self, payload: dict[str, Any]) -> list[SourceFact]:
+        page_sources: list[SourceFact] = []
+        for row in payload.get("data", []):
+            url = _dim(row, 0)
+            source = _dim(row, 1)
+            if not url or not source:
+                continue
+            page_sources.append(SourceFact(source=source, visits=int(_metric(row, 0)), url=url, raw=row))
+        return page_sources
 
     def normalize_visits(self, payload: dict[str, Any]) -> list[VisitFact]:
         visits: list[VisitFact] = []
@@ -65,14 +98,22 @@ class MetrikaNormalizer:
     def normalize_regions(self, payload: dict[str, Any]) -> list[RegionFact]:
         return [RegionFact(region=_dim(row, 0), visits=int(_metric(row, 0)), raw=row) for row in payload.get("data", [])]
 
-    def merge(self, pages: list[PageFact], entry_urls: set[str], sources: list[SourceFact], visits: list[VisitFact], search_queries: list[SearchQueryFact], goals: list[GoalFact], devices: list[DeviceFact], regions: list[RegionFact], limitations: list[str]) -> NormalizedMetrikaData:
-        source_totals = {s.source: s.visits for s in sources}
+    def merge(self, pages: list[PageFact], entry_urls: set[str], sources: list[SourceFact], visits: list[VisitFact], search_queries: list[SearchQueryFact], goals: list[GoalFact], devices: list[DeviceFact], regions: list[RegionFact], limitations: list[str], page_sources: list[SourceFact] | None = None) -> NormalizedMetrikaData:
+        page_source_totals: dict[str, dict[str, int]] = {}
+        for item in page_sources or []:
+            if not item.url:
+                continue
+            source_totals = page_source_totals.setdefault(item.url, {})
+            source_totals[item.source] = source_totals.get(item.source, 0) + int(item.visits)
+
         for page in pages:
             page.is_entry_page = page.url in entry_urls
-            page.traffic_sources = dict(source_totals)
-            total = sum(source_totals.values())
-            if total:
-                page.search_traffic_share = (source_totals.get("Search engine traffic", 0) + source_totals.get("search", 0)) / total
-                page.social_share = (source_totals.get("Social network traffic", 0) + source_totals.get("social", 0)) / total
+            url_source_totals = page_source_totals.get(page.url)
+            if url_source_totals:
+                page.traffic_sources = dict(url_source_totals)
+                _attach_source_shares(page, url_source_totals)
+            elif page.traffic_sources:
+                _attach_source_shares(page, page.traffic_sources)
+
         logger.info("Normalization completed: pages={} visits={}", len(pages), len(visits))
         return NormalizedMetrikaData(pages=pages, visits=visits, sources=sources, goals=goals, search_queries=search_queries, devices=devices, regions=regions, limitations=limitations)
