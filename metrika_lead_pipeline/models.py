@@ -199,6 +199,8 @@ class DecisionRecord(DumpMixin):
     page_role: str = "unknown"
     job_hypothesis: str = "unknown"
     stage_hypothesis: str = "unknown"
+    traffic_context: str = "unknown"
+    behavior_context: str = "unknown"
     stage_confidence: float = 0.0
     scores: dict[str, float] = field(default_factory=dict)
     triggered_signals: dict[str, list[str]] = field(default_factory=dict)

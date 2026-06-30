@@ -76,6 +76,26 @@ def test_discover_price_page_gets_distinguishing_test_not_lower_funnel_form() ->
     assert any("Discover" in item for item in rec.data_limitations)
 
 
+def test_recommendation_system_traffic_on_price_page_gets_distinguishing_test() -> None:
+    page = PageFact(
+        url="/cars/model-a-price",
+        title="Model A цена и комплектации",
+        pageviews=100,
+        visitors=80,
+        traffic_sources={"Recommendation system traffic": 90, "Search engine traffic": 10},
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations([page], {page.url: ["цены", "комплектации"]}, _rules())[0]
+
+    assert rec.page_role == "price_or_trims"
+    assert rec.traffic_context == "discover"
+    assert rec.stage_hypothesis == "commercial_page_but_unproven_visit_stage"
+    assert rec.recommendation == "ab_test_early_vs_commitment"
+    assert rec.experiment_type == "distinguishing_test"
+    assert rec.form_allowed is False
+
+
 def test_search_price_page_can_allow_dealer_offer_form() -> None:
     page = PageFact(
         url="/cars/model-a-price",

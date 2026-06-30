@@ -37,6 +37,23 @@ class MetrikaReportCollector:
         payload = self.client.request(["ym:s:visits"], ["ym:s:lastsignTrafficSource"], date1, date2, filters)
         return self.normalizer.normalize_sources(payload)
 
+    def collect_page_sources(self, date1: str, date2: str, filters: str | None = None) -> list[SourceFact]:
+        logger.info("Collecting page-level sources report")
+        try:
+            payload = self.client.request(
+                ["ym:s:visits"],
+                ["ym:s:startURL", "ym:s:lastsignTrafficSource"],
+                date1,
+                date2,
+                filters,
+            )
+            return self.normalizer.normalize_page_sources(payload)
+        except Exception as exc:
+            msg = f"Источники трафика по страницам недоступны через выбранный Reporting API/счетчик: {exc}"
+            logger.warning(msg)
+            self.limitations.append(msg)
+            return []
+
     def collect_visits(self, date1: str, date2: str, filters: str | None = None) -> list[VisitFact]:
         logger.info("Collecting visits/path report")
         try:
@@ -85,9 +102,10 @@ class MetrikaReportCollector:
         pages = self.collect_pages(date1, date2, filters)
         entry = self.collect_entry_pages(date1, date2, filters)
         sources = self.collect_sources(date1, date2, filters)
+        page_sources = self.collect_page_sources(date1, date2, filters)
         visits = self.collect_visits(date1, date2, filters)
         queries = self.collect_search_queries(date1, date2, filters)
         goals = self.collect_goals(date1, date2, filters)
         devices = self.collect_devices(date1, date2, filters)
         regions = self.collect_regions(date1, date2, filters)
-        return self.normalizer.merge(pages, entry, sources, visits, queries, goals, devices, regions, self.limitations)
+        return self.normalizer.merge(pages, entry, sources, visits, queries, goals, devices, regions, self.limitations, page_sources)

@@ -85,6 +85,8 @@ def _build_decisions(pages: list[PageFact], recs: list[Recommendation], evals: d
             page_role=rec.page_role,
             job_hypothesis=rec.job_hypothesis,
             stage_hypothesis=rec.stage_hypothesis,
+            traffic_context=rec.traffic_context,
+            behavior_context=rec.behavior_context,
             stage_confidence=rec.stage_confidence,
             scores={
                 "intent_score": rec.intent_score,
