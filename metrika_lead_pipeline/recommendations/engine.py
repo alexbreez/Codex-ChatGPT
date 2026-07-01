@@ -427,6 +427,18 @@ def build_recommendations(
             form_prohibited=form_prohibited,
             scoring=scoring,
         )
+        if (
+            traffic < min_visits
+            and recommendation in {"dealer_offer_form", "test_drive_form"}
+            and form_prohibited is False
+        ):
+            recommendation = "manual_review"
+            cta_type = "manual_review"
+            form_allowed = False
+            manual_review = True
+            ux_risk_level = "medium"
+            experiment_type = ""
+
 
         reason = _reason(
             recommendation=recommendation,
