@@ -36,6 +36,11 @@ def _share(value: float | None) -> float:
     return float(value) if value is not None else 0.0
 
 
+def _is_noncanonical_direct_form_url(url: str) -> bool:
+    normalized = url.lower()
+    return "/amp/" in normalized or "#gallery" in normalized or "#gal" in normalized
+
+
 def _source_hits(page: PageFact, needles: tuple[str, ...]) -> int:
     total = 0
     for source, visits in page.traffic_sources.items():
@@ -429,6 +434,18 @@ def build_recommendations(
         )
         if (
             traffic < min_visits
+            and recommendation in {"dealer_offer_form", "test_drive_form"}
+            and form_prohibited is False
+        ):
+            recommendation = "manual_review"
+            cta_type = "manual_review"
+            form_allowed = False
+            manual_review = True
+            ux_risk_level = "medium"
+            experiment_type = ""
+
+        if (
+            _is_noncanonical_direct_form_url(page.url)
             and recommendation in {"dealer_offer_form", "test_drive_form"}
             and form_prohibited is False
         ):
