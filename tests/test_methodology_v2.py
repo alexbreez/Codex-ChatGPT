@@ -169,6 +169,30 @@ def test_low_traffic_direct_form_candidate_is_forced_to_manual_review() -> None:
     assert "Недостаточно просмотров страниц" in " ".join(rec.limitations)
 
 
+def test_fragment_gallery_url_direct_form_candidate_is_forced_to_manual_review() -> None:
+    page = PageFact(
+        url="/cars/model-a-price/#gallery",
+        title="Model A цена комплектации дилер кроссовер",
+        pageviews=800,
+        visitors=500,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations(
+        [page],
+        {page.url: ["цены", "комплектации", "дилеры", "категория/бюджет"]},
+        _rules(),
+    )[0]
+
+    assert rec.status == "Гипотеза"
+    assert rec.form_allowed is False
+    assert rec.recommendation == "manual_review"
+    assert rec.recommended_cta_type == "manual_review"
+    assert rec.manual_review_required is True
+    assert rec.form_prohibited is False
+
+
 def test_form_prohibited_signal_blocks_form_even_with_purchase_signal() -> None:
     page = PageFact(
         url="/news/accident-price",
