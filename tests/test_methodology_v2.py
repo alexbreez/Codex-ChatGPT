@@ -144,6 +144,31 @@ def test_search_price_page_can_allow_dealer_offer_form() -> None:
     assert rec.intent_score >= 70
 
 
+def test_low_traffic_direct_form_candidate_is_forced_to_manual_review() -> None:
+    page = PageFact(
+        url="/cars/model-a-low-traffic-price",
+        title="Model A цена комплектации дилер кроссовер",
+        pageviews=20,
+        visitors=18,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations(
+        [page],
+        {page.url: ["цены", "комплектации", "дилеры", "категория/бюджет"]},
+        _rules(),
+    )[0]
+
+    assert rec.status == "Недостаточно данных"
+    assert rec.form_allowed is False
+    assert rec.recommendation == "manual_review"
+    assert rec.recommended_cta_type == "manual_review"
+    assert rec.manual_review_required is True
+    assert rec.form_prohibited is False
+    assert "Недостаточно просмотров страниц" in " ".join(rec.limitations)
+
+
 def test_form_prohibited_signal_blocks_form_even_with_purchase_signal() -> None:
     page = PageFact(
         url="/news/accident-price",
