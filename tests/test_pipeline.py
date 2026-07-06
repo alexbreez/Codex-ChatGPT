@@ -31,6 +31,43 @@ def test_pipeline_writes_reports(tmp_path: Path) -> None:
     assert (tmp_path / "report_pages.xlsx").exists()
 
 
+
+
+def test_run_pipeline_groups_canonical_url_variants_before_scoring(tmp_path: Path) -> None:
+    rows = [
+        {
+            "url": "/cars/model-a-price/#gallery",
+            "title": "Model A цена комплектации дилер",
+            "pageviews": 60,
+            "visitors": 40,
+            "traffic_sources": {"search": 30},
+        },
+        {
+            "url": "/cars/model-a-price/amp/",
+            "title": "Model A цена комплектации дилер",
+            "pageviews": 40,
+            "visitors": 30,
+            "traffic_sources": {"search": 20},
+        },
+    ]
+
+    pages, _signals, _recs = run_pipeline(rows, output_dir=tmp_path)
+
+    assert len(pages) == 1
+    page = pages[0]
+    assert page.url == "/cars/model-a-price/"
+    assert page.canonical_url == "/cars/model-a-price/"
+    assert set(page.url_variants) == {"/cars/model-a-price/#gallery", "/cars/model-a-price/amp/"}
+    assert page.pageviews == 100
+    assert page.visitors == 70
+    assert page.traffic_sources == {"search": 50}
+
+    decision_log = json.loads((tmp_path / "decision_log.json").read_text(encoding="utf-8"))
+    facts = decision_log[0]["facts"]
+    assert facts["canonical_url"] == "/cars/model-a-price/"
+    assert set(facts["url_variants"]) == {"/cars/model-a-price/#gallery", "/cars/model-a-price/amp/"}
+
+
 def test_report_outputs_are_limited_by_config(tmp_path: Path) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text("""

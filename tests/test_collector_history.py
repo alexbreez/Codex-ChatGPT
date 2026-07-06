@@ -111,6 +111,47 @@ def test_normalizer_merges_page_level_sources_without_copying_aggregate_sources(
     assert data.pages[1].traffic_sources == {}
 
 
+
+
+def test_normalizer_groups_canonical_url_variants_before_source_merge() -> None:
+    normalizer = MetrikaNormalizer()
+    pages = normalizer.normalize_pages({"data": [
+        {"dimensions": [{"name": "/content/articles/123-car/#gallery"}, {"name": "Model A"}], "metrics": [60, 40]},
+        {"dimensions": [{"name": "/content/amp/articles/123-car/"}, {"name": "Model A AMP"}], "metrics": [40, 30]},
+    ]})
+    page_sources = normalizer.normalize_page_sources({"data": [
+        {"dimensions": [{"name": "/content/articles/123-car/#gallery"}, {"name": "Search engine traffic"}], "metrics": [30]},
+        {"dimensions": [{"name": "/content/amp/articles/123-car/"}, {"name": "Recommendation system traffic"}], "metrics": [20]},
+    ]})
+
+    data = normalizer.merge(
+        pages,
+        set(),
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        page_sources=page_sources,
+    )
+
+    assert len(data.pages) == 1
+    page = data.pages[0]
+    assert page.url == "/content/articles/123-car/"
+    assert page.canonical_url == "/content/articles/123-car/"
+    assert set(page.url_variants) == {
+        "/content/articles/123-car/#gallery",
+        "/content/amp/articles/123-car/",
+    }
+    assert page.pageviews == 100
+    assert page.visitors == 70
+    assert page.traffic_sources == {"Search engine traffic": 30, "Recommendation system traffic": 20}
+    assert page.search_traffic_share == 0.6
+    assert page.discover_share == 0.4
+
+
 def test_delta_engine_detects_candidate_changes() -> None:
     previous = {"pages": [{"url": "/u", "search_traffic_share": 0.1}], "signals": [], "recommendations": [{"url": "/u", "status": "Недостаточно данных", "confidence": 0.0}]}
     current = {"pages": [{"url": "/u", "search_traffic_share": 0.5}], "signals": [{"url": "/u", "signal": "цены"}], "recommendations": [{"url": "/u", "status": "Гипотеза", "confidence": 0.8, "reason": "ok"}]}
