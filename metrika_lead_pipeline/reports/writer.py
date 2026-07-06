@@ -131,7 +131,8 @@ def _score_summary(r: Recommendation) -> str:
         f"opportunity={r.opportunity_score:.1f}, "
         f"risk={r.risk_score:.1f}, "
         f"stage_confidence={r.stage_confidence:.2f}, "
-        f"ranking={r.ranking_score:.1f}"
+        f"ranking={r.ranking_score:.1f}, "
+        f"commercial_priority={r.commercial_priority_score:.1f}"
     )
 
 
@@ -141,9 +142,14 @@ def _action_line(r: Recommendation) -> str:
         form_state = "форма запрещена"
     review_state = "ручная проверка нужна" if r.manual_review_required else "ручная проверка не обязательна"
     experiment = f", experiment={r.experiment_type}" if r.experiment_type else ""
+    offer = (
+        f", offer={r.offer_coverage_status}"
+        f", partner={r.matched_offer_partner or 'none'}"
+        f", monetization_weight={r.monetization_weight:.2f}"
+    )
     return (
         f"- {r.url} — action={r.recommendation}, cta={r.recommended_cta_type}, "
-        f"{form_state}, {review_state}{experiment}; "
+        f"{form_state}, {review_state}{experiment}{offer}; "
         f"{_score_summary(r)}. {r.reason}"
     )
 
@@ -262,6 +268,13 @@ def _decision_md(decisions: list[DecisionRecord], max_items: int = DEFAULT_DECIS
             f"- UX risk: {d.ux_risk_level}",
             f"- Manual review required: {d.manual_review_required}",
             f"- Experiment type: {d.experiment_type or 'none'}",
+            f"- Offer coverage: {d.offer_coverage_status}",
+            f"- Matched offer type: {d.matched_offer_type or 'none'}",
+            f"- Matched offer partner: {d.matched_offer_partner or 'none'}",
+            f"- Offer contract status: {d.offer_contract_status or 'none'}",
+            f"- Monetization weight: {d.monetization_weight:.2f}",
+            f"- Commercial priority score: {d.commercial_priority_score:.2f}",
+            f"- Offer coverage reason: {d.offer_coverage_reason}",
             f"- Объяснение: {d.explanation}",
         ]
 

@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
+import metrika_lead_pipeline.pipeline.runner as runner_module
 from metrika_lead_pipeline.config.loader import default_config_path, load_yaml
 from metrika_lead_pipeline.models import PageFact
 from metrika_lead_pipeline.pipeline.runner import run_pipeline
@@ -11,6 +14,26 @@ from metrika_lead_pipeline.recommendations.engine import build_recommendations
 
 def _rules() -> dict[str, object]:
     return load_yaml(default_config_path("rules.yaml"))
+
+
+def _rules_with_offer(match_any: list[str] | None = None, weight: float = 1.0) -> dict[str, object]:
+    rules = _rules()
+    rec_rules = rules["recommendation_rules"]
+    assert isinstance(rec_rules, dict)
+    rec_rules["offer_coverage"] = {
+        "default_status": "unknown",
+        "default_monetization_weight": 0.0,
+        "offers": [
+            {
+                "match_any": match_any or ["model a"],
+                "offer_type": "dealer_offer",
+                "partner": "test_partner",
+                "contract_status": "test",
+                "monetization_weight": weight,
+            }
+        ],
+    }
+    return rules
 
 
 def test_high_opportunity_risk_ownership_gets_distinguishing_test_without_allowing_form() -> None:
@@ -133,7 +156,7 @@ def test_search_price_page_can_allow_dealer_offer_form() -> None:
         avg_time_seconds=120,
     )
 
-    rec = build_recommendations([page], {page.url: ["цены", "комплектации", "дилеры"]}, _rules())[0]
+    rec = build_recommendations([page], {page.url: ["цены", "комплектации", "дилеры"]}, _rules_with_offer())[0]
 
     assert rec.page_role == "price_or_trims"
     assert rec.stage_hypothesis == "lower_funnel_hypothesis"
@@ -142,6 +165,33 @@ def test_search_price_page_can_allow_dealer_offer_form() -> None:
     assert rec.form_allowed is True
     assert rec.form_prohibited is False
     assert rec.intent_score >= 70
+    assert rec.offer_coverage_status == "matched"
+    assert rec.monetization_weight == 1.0
+    assert rec.commercial_priority_score > 0
+
+
+def test_search_price_page_without_offer_does_not_allow_dealer_offer_form() -> None:
+    page = PageFact(
+        url="/cars/model-a-price",
+        title="Model A цена комплектации дилер",
+        pageviews=800,
+        visitors=500,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations([page], {page.url: ["цены", "комплектации", "дилеры"]}, _rules())[0]
+
+    assert rec.page_role == "price_or_trims"
+    assert rec.stage_hypothesis == "lower_funnel_hypothesis"
+    assert rec.recommendation == "manual_review"
+    assert rec.recommended_cta_type == "manual_review"
+    assert rec.form_allowed is False
+    assert rec.form_prohibited is False
+    assert rec.offer_coverage_status == "unknown"
+    assert rec.monetization_weight == 0.0
+    assert rec.commercial_priority_score == 0.0
+    assert any("оффером не найдено" in item for item in rec.data_limitations)
 
 
 def test_low_traffic_direct_form_candidate_is_forced_to_manual_review() -> None:
@@ -238,7 +288,7 @@ def test_decision_log_contains_methodology_v2_fields(tmp_path: Path) -> None:
     assert decision["triggered_signals"]["risk_signals"] == ["risk/ownership"]
 
 
-def test_pipeline_preserves_pageviews_and_explicit_traffic_shares_for_recommendations(tmp_path: Path) -> None:
+def test_pipeline_preserves_pageviews_and_explicit_traffic_shares_for_recommendations(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     rows = [
         {
             "url": "/cars/model-a-price",
@@ -250,7 +300,20 @@ def test_pipeline_preserves_pageviews_and_explicit_traffic_shares_for_recommenda
         }
     ]
 
-    run_pipeline(rows, output_dir=tmp_path)
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        default_config_path("config.yaml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    def fake_load_yaml(path: Path | None) -> dict[str, object]:
+        if path is not None and Path(path).name == "rules.yaml":
+            return _rules_with_offer()
+        return load_yaml(path)
+
+    monkeypatch.setattr(runner_module, "load_yaml", fake_load_yaml)
+
+    run_pipeline(rows, config_path=config_path, output_dir=tmp_path)
 
     decision_log = json.loads((tmp_path / "decision_log.json").read_text(encoding="utf-8"))
     decision = decision_log[0]
@@ -261,6 +324,40 @@ def test_pipeline_preserves_pageviews_and_explicit_traffic_shares_for_recommenda
     assert decision["form_allowed"] is True
     assert decision["scores"]["intent_score"] >= 70
     assert decision["scores"]["opportunity_score"] >= 50
+    assert decision["scores"]["commercial_priority_score"] > 0
+    assert decision["offer_coverage_status"] == "matched"
+    assert decision["matched_offer_partner"] == "test_partner"
+    assert decision["monetization_weight"] == 1.0
+
+
+def test_soft_budget_requires_matched_offer_not_only_positive_default_weight() -> None:
+    rules = _rules()
+    rec_rules = rules["recommendation_rules"]
+    assert isinstance(rec_rules, dict)
+    rec_rules["experiment_budget_per_run"] = 1
+    rec_rules["offer_coverage"] = {
+        "default_status": "unknown",
+        "default_monetization_weight": 1.0,
+        "offers": [],
+    }
+
+    page = PageFact(
+        url="/cars/model-a-price",
+        title="Model A цена комплектации дилер",
+        pageviews=800,
+        visitors=500,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+
+    rec = build_recommendations([page], {page.url: ["цены", "комплектации", "дилеры"]}, rules)[0]
+
+    assert rec.offer_coverage_status == "unknown"
+    assert rec.monetization_weight == 1.0
+    assert rec.commercial_priority_score > 0
+    assert rec.form_allowed is False
+    assert rec.experiment_type == ""
+    assert rec.recommendation == "manual_review"
 
 
 def test_experiment_budget_marks_top_ranked_soft_action_without_allowing_form() -> None:
@@ -288,6 +385,20 @@ def test_experiment_budget_marks_top_ranked_soft_action_without_allowing_form() 
         search_traffic_share=0.9,
         avg_time_seconds=120,
     )
+
+    rec_rules["offer_coverage"] = {
+        "default_status": "unknown",
+        "default_monetization_weight": 0.0,
+        "offers": [
+            {
+                "match_any": ["model a"],
+                "offer_type": "dealer_offer",
+                "partner": "test_partner",
+                "contract_status": "test",
+                "monetization_weight": 1.0,
+            }
+        ],
+    }
 
     recs = build_recommendations(
         [weaker_page, stronger_page],

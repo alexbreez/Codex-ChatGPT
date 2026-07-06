@@ -40,3 +40,8 @@ recommendation_rules:
     high_opportunity_threshold: 50
     high_risk_threshold: 60
     min_stage_confidence_for_form: 0.55
+
+  offer_coverage:
+    default_status: "unknown"
+    default_monetization_weight: 0.0
+    offers: []

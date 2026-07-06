@@ -198,6 +198,13 @@ class Recommendation(DumpMixin):
     data_limitations: list[str] = field(default_factory=list)
     manual_review_required: bool = True
     experiment_type: str = ""
+    offer_coverage_status: str = "unknown"
+    matched_offer_type: str = ""
+    matched_offer_partner: str = ""
+    offer_contract_status: str = ""
+    monetization_weight: float = 0.0
+    commercial_priority_score: float = 0.0
+    offer_coverage_reason: str = ""
 
 
 @dataclass
@@ -241,3 +248,10 @@ class DecisionRecord(DumpMixin):
     data_limitations: list[str] = field(default_factory=list)
     manual_review_required: bool = True
     experiment_type: str = ""
+    offer_coverage_status: str = "unknown"
+    matched_offer_type: str = ""
+    matched_offer_partner: str = ""
+    offer_contract_status: str = ""
+    monetization_weight: float = 0.0
+    commercial_priority_score: float = 0.0
+    offer_coverage_reason: str = ""
