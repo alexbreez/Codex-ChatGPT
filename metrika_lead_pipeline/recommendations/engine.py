@@ -36,6 +36,64 @@ def _soft_experiment_budget(rec_rules: dict[str, object]) -> int:
         return 0
 
 
+def _offer_coverage_config(rec_rules: dict[str, object]) -> dict[str, object]:
+    raw = rec_rules.get("offer_coverage", {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def _offer_text(page: PageFact) -> str:
+    return f"{page.url} {page.title}".lower()
+
+
+def _match_offer_coverage(page: PageFact, rec_rules: dict[str, object]) -> dict[str, object]:
+    cfg = _offer_coverage_config(rec_rules)
+    default_status = str(cfg.get("default_status", "unknown"))
+    try:
+        default_weight = max(0.0, float(cfg.get("default_monetization_weight", 0.0)))
+    except (TypeError, ValueError):
+        default_weight = 0.0
+
+    text = _offer_text(page)
+    offers = cfg.get("offers", [])
+    if isinstance(offers, list):
+        for offer in offers:
+            if not isinstance(offer, dict):
+                continue
+            match_any = offer.get("match_any", [])
+            if not isinstance(match_any, list):
+                continue
+            needles = [str(item).lower() for item in match_any if str(item).strip()]
+            if needles and any(needle in text for needle in needles):
+                try:
+                    weight = max(0.0, float(offer.get("monetization_weight", 1.0)))
+                except (TypeError, ValueError):
+                    weight = 0.0
+                partner = str(offer.get("partner", ""))
+                offer_type = str(offer.get("offer_type", ""))
+                contract_status = str(offer.get("contract_status", ""))
+                return {
+                    "offer_coverage_status": "matched",
+                    "matched_offer_type": offer_type,
+                    "matched_offer_partner": partner,
+                    "offer_contract_status": contract_status,
+                    "monetization_weight": weight,
+                    "offer_coverage_reason": f"Найдено покрытие оффером: {offer_type or 'offer'} / {partner or 'partner'} / {contract_status or 'contract_status'}; monetization_weight={weight}.",
+                }
+
+    return {
+        "offer_coverage_status": default_status,
+        "matched_offer_type": "",
+        "matched_offer_partner": "",
+        "offer_contract_status": "",
+        "monetization_weight": default_weight,
+        "offer_coverage_reason": "Коммерческое покрытие оффером не найдено; страница остается аналитической гипотезой, но не коммерческим кандидатом.",
+    }
+
+
+def _commercial_priority_score(ranking_score: float, monetization_weight: float) -> float:
+    return round(ranking_score * max(0.0, monetization_weight), 2)
+
+
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
 
@@ -255,6 +313,13 @@ def _ranking_score(intent_score: float, opportunity_score: float, stage_confiden
     return round((intent_score / 100.0) * (opportunity_score / 100.0) * stage_confidence * 100.0, 2)
 
 
+def _has_offer_coverage(offer: dict[str, object]) -> bool:
+    return (
+        offer.get("offer_coverage_status") == "matched"
+        and float(offer.get("monetization_weight", 0.0) or 0.0) > 0.0
+    )
+
+
 def _recommendation(
     page_role: str,
     groups: dict[str, list[str]],
@@ -375,7 +440,8 @@ def _is_soft_budget_candidate(rec: Recommendation) -> bool:
         and not rec.form_prohibited
         and not rec.experiment_type
         and rec.status != "Недостаточно данных"
-        and rec.ranking_score > 0
+        and rec.offer_coverage_status == "matched"
+        and rec.commercial_priority_score > 0
         and not _is_noncanonical_direct_form_url(rec.url)
     )
 
@@ -386,7 +452,7 @@ def _apply_soft_experiment_budget(recs: list[Recommendation], budget: int) -> No
 
     candidates = sorted(
         (rec for rec in recs if _is_soft_budget_candidate(rec)),
-        key=lambda rec: (-rec.ranking_score, rec.url),
+        key=lambda rec: (-rec.commercial_priority_score, -rec.ranking_score, rec.url),
     )
 
     for rec in candidates[:budget]:
@@ -437,6 +503,11 @@ def build_recommendations(
 
         form_prohibited = bool(groups["prohibited"]) or page_role in prohibited_roles
         ranking = _ranking_score(intent, opportunity, stage_conf, form_prohibited)
+        offer_coverage = _match_offer_coverage(page, rec_rules)
+        commercial_priority = _commercial_priority_score(
+            ranking,
+            float(offer_coverage.get("monetization_weight", 0.0) or 0.0),
+        )
 
         limitations: list[str] = []
         data_limitations: list[str] = []
@@ -472,6 +543,19 @@ def build_recommendations(
             form_prohibited=form_prohibited,
             scoring=scoring,
         )
+        if (
+            recommendation in {"dealer_offer_form", "test_drive_form"}
+            and form_prohibited is False
+            and not _has_offer_coverage(offer_coverage)
+        ):
+            recommendation = "manual_review"
+            cta_type = "manual_review"
+            form_allowed = False
+            manual_review = True
+            ux_risk_level = "medium"
+            experiment_type = ""
+            data_limitations.append(str(offer_coverage["offer_coverage_reason"]))
+
         if (
             traffic < min_visits
             and recommendation in {"dealer_offer_form", "test_drive_form"}
@@ -546,6 +630,13 @@ def build_recommendations(
                 risk_score=risk,
                 stage_confidence=stage_conf,
                 ranking_score=ranking,
+                commercial_priority_score=commercial_priority,
+                offer_coverage_status=str(offer_coverage["offer_coverage_status"]),
+                matched_offer_type=str(offer_coverage["matched_offer_type"]),
+                matched_offer_partner=str(offer_coverage["matched_offer_partner"]),
+                offer_contract_status=str(offer_coverage["offer_contract_status"]),
+                monetization_weight=float(offer_coverage["monetization_weight"]),
+                offer_coverage_reason=str(offer_coverage["offer_coverage_reason"]),
                 recommendation=recommendation,
                 recommended_cta_type=cta_type,
                 form_allowed=form_allowed,

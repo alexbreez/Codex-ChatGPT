@@ -93,6 +93,7 @@ def _build_decisions(pages: list[PageFact], recs: list[Recommendation], evals: d
                 "opportunity_score": rec.opportunity_score,
                 "risk_score": rec.risk_score,
                 "ranking_score": rec.ranking_score,
+                "commercial_priority_score": rec.commercial_priority_score,
             },
             triggered_signals=triggered_signals,
             triggered_constraints=triggered_constraints,
@@ -106,5 +107,12 @@ def _build_decisions(pages: list[PageFact], recs: list[Recommendation], evals: d
             data_limitations=rec.data_limitations,
             manual_review_required=rec.manual_review_required,
             experiment_type=rec.experiment_type,
+            offer_coverage_status=rec.offer_coverage_status,
+            matched_offer_type=rec.matched_offer_type,
+            matched_offer_partner=rec.matched_offer_partner,
+            offer_contract_status=rec.offer_contract_status,
+            monetization_weight=rec.monetization_weight,
+            commercial_priority_score=rec.commercial_priority_score,
+            offer_coverage_reason=rec.offer_coverage_reason,
         ))
     return records
