@@ -15,10 +15,36 @@ class DumpMixin:
         return data
 
 
+def canonical_page_url(url: str) -> str:
+    """Return a canonical page URL for grouping URL variants before scoring.
+
+    Methodology v3 requires grouping fragments and AMP variants before
+    opportunity_score is calculated. This helper intentionally stays narrow:
+    it removes URL fragments and maps trailing /amp or /amp/ variants to the
+    article URL, without broad URL parsing or query stripping.
+    """
+    normalized = str(url or "")
+    if "#" in normalized:
+        normalized = normalized.split("#", 1)[0]
+
+    body, sep, query = normalized.partition("?")
+    body = body.replace("/content/amp/news/", "/content/news/")
+    body = body.replace("/content/amp/articles/", "/content/articles/")
+
+    if body.endswith("/amp/"):
+        body = body[:-4]
+    elif body.endswith("/amp"):
+        body = body[:-3]
+
+    return body + (sep + query if sep else "")
+
+
 @dataclass
 class PageFact(DumpMixin):
     url: str
     title: str = ""
+    canonical_url: str = ""
+    url_variants: list[str] = field(default_factory=list)
     visits: int = 0
     pageviews: int = 0
     visitors: int = 0

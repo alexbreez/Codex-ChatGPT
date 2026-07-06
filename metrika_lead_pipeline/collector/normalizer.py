@@ -10,7 +10,7 @@ except Exception:  # pragma: no cover
         def error(self, *a: Any, **k: Any) -> None: pass
     logger = _Logger()
 
-from metrika_lead_pipeline.models import DeviceFact, GoalFact, NormalizedMetrikaData, PageFact, RegionFact, SearchQueryFact, SourceFact, VisitFact
+from metrika_lead_pipeline.models import DeviceFact, GoalFact, NormalizedMetrikaData, PageFact, RegionFact, SearchQueryFact, SourceFact, VisitFact, canonical_page_url
 
 
 def _dim(row: dict[str, Any], index: int, default: str = "") -> str:
@@ -53,15 +53,44 @@ def _attach_source_shares(page: PageFact, source_totals: dict[str, int]) -> None
     page.social_share = _source_share(source_totals, ("social network traffic", "social", "соц"))
 
 
+def _append_unique(items: list[str], value: str) -> None:
+    if value and value not in items:
+        items.append(value)
+
+
 class MetrikaNormalizer:
     def normalize_pages(self, payload: dict[str, Any]) -> list[PageFact]:
-        pages: list[PageFact] = []
+        grouped: dict[str, PageFact] = {}
+        order: list[str] = []
         for row in payload.get("data", []):
             try:
-                pages.append(PageFact(url=_dim(row, 0), title=_dim(row, 1), pageviews=int(_metric(row, 0)), visitors=int(_metric(row, 1)), raw=row))
+                original_url = _dim(row, 0)
+                canonical_url = canonical_page_url(original_url)
+                if not canonical_url:
+                    continue
+
+                page = grouped.get(canonical_url)
+                if page is None:
+                    page = PageFact(
+                        url=canonical_url,
+                        title=_dim(row, 1),
+                        canonical_url=canonical_url,
+                        pageviews=int(_metric(row, 0)),
+                        visitors=int(_metric(row, 1)),
+                        raw=row,
+                    )
+                    grouped[canonical_url] = page
+                    order.append(canonical_url)
+                else:
+                    page.pageviews += int(_metric(row, 0))
+                    page.visitors += int(_metric(row, 1))
+                    if not page.title:
+                        page.title = _dim(row, 1)
+
+                _append_unique(page.url_variants, original_url)
             except Exception as exc:
                 logger.error("Page normalization error: {}", exc)
-        return pages
+        return [grouped[url] for url in order]
 
     def normalize_entry_pages(self, payload: dict[str, Any]) -> set[str]:
         return {_dim(row, 0) for row in payload.get("data", []) if _dim(row, 0)}
@@ -72,7 +101,7 @@ class MetrikaNormalizer:
     def normalize_page_sources(self, payload: dict[str, Any]) -> list[SourceFact]:
         page_sources: list[SourceFact] = []
         for row in payload.get("data", []):
-            url = _dim(row, 0)
+            url = canonical_page_url(_dim(row, 0))
             source = _dim(row, 1)
             if not url or not source:
                 continue
@@ -99,16 +128,24 @@ class MetrikaNormalizer:
         return [RegionFact(region=_dim(row, 0), visits=int(_metric(row, 0)), raw=row) for row in payload.get("data", [])]
 
     def merge(self, pages: list[PageFact], entry_urls: set[str], sources: list[SourceFact], visits: list[VisitFact], search_queries: list[SearchQueryFact], goals: list[GoalFact], devices: list[DeviceFact], regions: list[RegionFact], limitations: list[str], page_sources: list[SourceFact] | None = None) -> NormalizedMetrikaData:
+        canonical_entry_urls = {canonical_page_url(url) for url in entry_urls if url}
         page_source_totals: dict[str, dict[str, int]] = {}
         for item in page_sources or []:
             if not item.url:
                 continue
-            source_totals = page_source_totals.setdefault(item.url, {})
+            canonical_url = canonical_page_url(item.url)
+            source_totals = page_source_totals.setdefault(canonical_url, {})
             source_totals[item.source] = source_totals.get(item.source, 0) + int(item.visits)
 
         for page in pages:
-            page.is_entry_page = page.url in entry_urls
-            url_source_totals = page_source_totals.get(page.url)
+            page_canonical_url = canonical_page_url(page.url)
+            page.url = page_canonical_url
+            if not page.canonical_url:
+                page.canonical_url = page_canonical_url
+            if not page.url_variants and page.url:
+                page.url_variants = [page.url]
+            page.is_entry_page = page_canonical_url in canonical_entry_urls
+            url_source_totals = page_source_totals.get(page_canonical_url)
             if url_source_totals:
                 page.traffic_sources = dict(url_source_totals)
                 _attach_source_shares(page, url_source_totals)
