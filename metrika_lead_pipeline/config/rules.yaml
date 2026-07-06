@@ -16,6 +16,7 @@ visit_rules:
 
 recommendation_rules:
   min_visits: 100
+  experiment_budget_per_run: 20
 
   purchase_signals: ["цены", "комплектации", "дилеры", "тест-драйв"]
   choice_signals: ["сравнение моделей", "категория/бюджет"]

@@ -28,6 +28,14 @@ def _score_config(rec_rules: dict[str, object]) -> dict[str, float]:
     }
 
 
+def _soft_experiment_budget(rec_rules: dict[str, object]) -> int:
+    value = rec_rules.get("experiment_budget_per_run", 0)
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
 
@@ -361,6 +369,37 @@ def _reason(
     return "Коммерческие сигналы не обнаружены."
 
 
+def _is_soft_budget_candidate(rec: Recommendation) -> bool:
+    return (
+        not rec.form_allowed
+        and not rec.form_prohibited
+        and not rec.experiment_type
+        and rec.status != "Недостаточно данных"
+        and rec.ranking_score > 0
+        and not _is_noncanonical_direct_form_url(rec.url)
+    )
+
+
+def _apply_soft_experiment_budget(recs: list[Recommendation], budget: int) -> None:
+    if budget <= 0:
+        return
+
+    candidates = sorted(
+        (rec for rec in recs if _is_soft_budget_candidate(rec)),
+        key=lambda rec: (-rec.ranking_score, rec.url),
+    )
+
+    for rec in candidates[:budget]:
+        rec.experiment_type = "soft_action_budget"
+        if rec.recommendation == "manual_review":
+            rec.recommendation = "manual_audit_before_experiment"
+            rec.recommended_cta_type = "manual_audit_before_experiment"
+            rec.manual_review_required = True
+            if rec.ux_risk_level == "unknown":
+                rec.ux_risk_level = "medium"
+        rec.reason += " Страница включена в квоту мягких экспериментов; перед установкой действия нужен ручной аудит."
+
+
 def build_recommendations(
     pages: list[PageFact],
     page_signals: dict[str, list[str]],
@@ -372,6 +411,7 @@ def build_recommendations(
         else {}
     )
     min_visits = int(rec_rules.get("min_visits", 100))
+    experiment_budget = _soft_experiment_budget(rec_rules)
     commercial = _as_set(rec_rules.get("commercial_signals"))
     scoring = _score_config(rec_rules)
     prohibited_roles = _as_set(rec_rules.get("form_prohibited_page_roles"))
@@ -518,4 +558,5 @@ def build_recommendations(
             )
         )
 
+    _apply_soft_experiment_budget(recs, experiment_budget)
     return recs

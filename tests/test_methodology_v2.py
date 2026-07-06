@@ -261,3 +261,50 @@ def test_pipeline_preserves_pageviews_and_explicit_traffic_shares_for_recommenda
     assert decision["form_allowed"] is True
     assert decision["scores"]["intent_score"] >= 70
     assert decision["scores"]["opportunity_score"] >= 50
+
+
+def test_experiment_budget_marks_top_ranked_soft_action_without_allowing_form() -> None:
+    rules = _rules()
+    rec_rules = rules["recommendation_rules"]
+    assert isinstance(rec_rules, dict)
+    rec_rules["experiment_budget_per_run"] = 1
+    scoring = rec_rules["scoring"]
+    assert isinstance(scoring, dict)
+    scoring["high_intent_threshold"] = 95
+
+    stronger_page = PageFact(
+        url="/cars/model-a-price",
+        title="Model A цена комплектации",
+        pageviews=800,
+        visitors=500,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+    weaker_page = PageFact(
+        url="/cars/model-b-vs-model-c",
+        title="Model B против Model C",
+        pageviews=300,
+        visitors=200,
+        search_traffic_share=0.9,
+        avg_time_seconds=120,
+    )
+
+    recs = build_recommendations(
+        [weaker_page, stronger_page],
+        {
+            stronger_page.url: ["цены", "комплектации"],
+            weaker_page.url: ["сравнение моделей"],
+        },
+        rules,
+    )
+
+    budgeted = [rec for rec in recs if rec.experiment_type == "soft_action_budget"]
+
+    assert len(budgeted) == 1
+    assert budgeted[0].url == stronger_page.url
+    assert budgeted[0].recommendation == "manual_audit_before_experiment"
+    assert budgeted[0].recommended_cta_type == "manual_audit_before_experiment"
+    assert budgeted[0].form_allowed is False
+    assert budgeted[0].form_prohibited is False
+    assert budgeted[0].manual_review_required is True
+    assert budgeted[0].status == "Гипотеза"
